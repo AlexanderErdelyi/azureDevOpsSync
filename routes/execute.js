@@ -112,15 +112,54 @@ router.get('/status/:executionId', async (req, res) => {
       });
     }
     
+    // Parse execution logs if available
+    let logs = [];
+    if (execution.execution_logs) {
+      try {
+        logs = JSON.parse(execution.execution_logs);
+      } catch (e) {
+        console.error('Failed to parse execution logs:', e);
+      }
+    }
+    
     // Get errors for this execution
     const errors = await db('sync_errors')
       .where({ sync_execution_id: executionId })
-      .select('source_item_id', 'error_type', 'error_message', 'created_at');
+      .select('item_id', 'error_type', 'error_message', 'stack_trace', 'created_at')
+      .orderBy('created_at', 'desc');
+    
+    // Get synced items for this execution (items synced during the execution time window)
+    let syncedItems = [];
+    if (execution.started_at && execution.completed_at) {
+      syncedItems = await db('synced_items as si')
+        .leftJoin('connectors as sc', 'si.source_connector_id', 'sc.id')
+        .leftJoin('connectors as tc', 'si.target_connector_id', 'tc.id')
+        .where({ 'si.sync_config_id': execution.sync_config_id })
+        .whereBetween('si.last_synced_at', [execution.started_at, execution.completed_at])
+        .select(
+          'si.source_item_id',
+          'si.target_item_id',
+          'si.source_item_type',
+          'si.target_item_type',
+          'si.last_synced_at',
+          'si.sync_count',
+          'sc.base_url as source_base_url',
+          'sc.endpoint as source_project',
+          'tc.base_url as target_base_url',
+          'tc.endpoint as target_project'
+        )
+        .orderBy('si.last_synced_at', 'asc');
+    }
     
     res.json({
       success: true,
-      execution: execution,
-      errors: errors
+      execution: {
+        ...execution,
+        execution_logs: undefined // Remove raw logs from response
+      },
+      logs: logs,
+      errors: errors,
+      syncedItems: syncedItems
     });
   } catch (error) {
     console.error('Error fetching execution status:', error);

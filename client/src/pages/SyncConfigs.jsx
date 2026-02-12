@@ -318,6 +318,45 @@ const SyncConfigs = () => {
     }
   };
 
+  const editConfig = async (config) => {
+    try {
+      // Fetch full config details including type mappings, field mappings, and status mappings
+      const response = await syncConfigApi.getSyncConfig(config.id);
+      const fullConfig = response.data.sync_config;
+      
+      // Transform config data to wizard format
+      setWizardData({
+        name: fullConfig.name || '',
+        source_connector_id: fullConfig.source_connector_id || '',
+        target_connector_id: fullConfig.target_connector_id || '',
+        type_mappings: fullConfig.type_mappings || [],
+        filter_conditions: [],
+        trigger_type: fullConfig.trigger_type || 'manual',
+        schedule_cron: fullConfig.schedule_cron || '',
+        sync_direction: fullConfig.sync_direction || 'one_way',
+        is_active: fullConfig.is_active !== undefined ? fullConfig.is_active : true
+      });
+      
+      setEditingConfigId(config.id);
+      setCurrentStep(1);
+      setShowWizard(true);
+      
+      // Load metadata for source and target connectors
+      if (fullConfig.source_connector_id) {
+        const sourceTypesRes = await metadataApi.getWorkItemTypes(fullConfig.source_connector_id, true);
+        setSourceMetadata({ types: sourceTypesRes.data.types || [] });
+      }
+      
+      if (fullConfig.target_connector_id) {
+        const targetTypesRes = await metadataApi.getWorkItemTypes(fullConfig.target_connector_id, true);
+        setTargetMetadata({ types: targetTypesRes.data.types || [] });
+      }
+    } catch (error) {
+      console.error('Error loading config for edit:', error);
+      alert('Error loading configuration: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
   const executeSync = async (configId, configName) => {
     if (!confirm(`Execute sync for "${configName}"?`)) return;
     
