@@ -8,6 +8,8 @@ const Scheduler = () => {
   const [queueStatus, setQueueStatus] = useState(null);
   const [configs, setConfigs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [rateLimited, setRateLimited] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState(Date.now());
 
   useEffect(() => {
     loadData();
@@ -52,6 +54,7 @@ const Scheduler = () => {
   const loadData = async () => {
     try {
       setLoading(true);
+      setRateLimited(false);
       const [schedulerRes, queueRes, configsRes] = await Promise.all([
         schedulerApi.getStatus(),
         jobQueueApi.getQueueStatus(),
@@ -60,11 +63,27 @@ const Scheduler = () => {
       setSchedulerStatus(schedulerRes.data.scheduler);
       setQueueStatus(queueRes.data.queue);
       setConfigs(configsRes.data.configs || []);
+      setLastRefresh(Date.now());
     } catch (error) {
       console.error('Error loading scheduler data:', error);
+      // Check if it's a rate limit error
+      if (error.response?.status === 429) {
+        setRateLimited(true);
+        alert('Rate limit exceeded. Please wait a moment before refreshing again.');
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleManualRefresh = () => {
+    // Debounce: prevent refresh if less than 2 seconds since last refresh
+    const timeSinceLastRefresh = Date.now() - lastRefresh;
+    if (timeSinceLastRefresh < 2000) {
+      alert('Please wait a moment between refreshes.');
+      return;
+    }
+    loadData();
   };
 
   const toggleScheduler = async () => {
@@ -143,11 +162,25 @@ const Scheduler = () => {
           <h1>Scheduler</h1>
           <p className="subtitle">Manage scheduled sync jobs and monitor health</p>
         </div>
-        <button className="btn-refresh" onClick={loadData}>
+        <button className="btn-refresh" onClick={handleManualRefresh} disabled={rateLimited}>
           <RefreshCw size={16} />
           Refresh
         </button>
       </div>
+
+      {rateLimited && (
+        <div style={{
+          background: '#fef3c7',
+          border: '1px solid #f59e0b',
+          borderRadius: '8px',
+          padding: '1rem',
+          marginBottom: '1rem',
+          color: '#92400e',
+          fontSize: '0.875rem'
+        }}>
+          ⚠️ Rate limit reached. Please wait a moment before refreshing again.
+        </div>
+      )}
 
       <div className="page-content">
         <div className="stat-cards">

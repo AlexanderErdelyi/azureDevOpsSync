@@ -14,6 +14,8 @@ const Monitoring = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState(Date.now());
+  const [rateLimited, setRateLimited] = useState(false);
 
   useEffect(() => {
     loadConfigs();
@@ -42,12 +44,28 @@ const Monitoring = () => {
 
   const loadExecutions = async (configId) => {
     try {
+      setRateLimited(false);
       const res = await executeApi.getExecutionHistory(configId, 100);
       setExecutions(res.data.executions || []);
+      setLastRefresh(Date.now());
     } catch (error) {
       console.error('Error loading executions:', error);
+      if (error.response?.status === 429) {
+        setRateLimited(true);
+        alert('Rate limit exceeded. Please wait a moment before refreshing again.');
+      }
       setExecutions([]);
     }
+  };
+
+  const handleManualRefresh = () => {
+    // Debounce: prevent refresh if less than 2 seconds since last refresh
+    const timeSinceLastRefresh = Date.now() - lastRefresh;
+    if (timeSinceLastRefresh < 2000) {
+      alert('Please wait a moment between refreshes.');
+      return;
+    }
+    loadExecutions(selectedConfig);
   };
 
   const executeSync = async (dryRun = false) => {
@@ -197,7 +215,7 @@ const Monitoring = () => {
           <p className="subtitle">Real-time sync monitoring and execution logs</p>
         </div>
         <div className="header-actions">
-          <button className="btn-secondary" onClick={() => loadExecutions(selectedConfig)}>
+          <button className="btn-secondary" onClick={handleManualRefresh} disabled={rateLimited}>
             <RefreshCw size={16} />
             Refresh
           </button>
