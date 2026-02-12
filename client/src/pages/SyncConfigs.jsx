@@ -161,7 +161,8 @@ const SyncConfigs = () => {
         ...wizardData,
         options: {
           sync_comments: wizardData.sync_comments || false,
-          sync_links: wizardData.sync_links || false
+          sync_links: wizardData.sync_links || false,
+          sync_only_changed: wizardData.sync_only_changed || false
         }
       };
       
@@ -405,6 +406,10 @@ const SyncConfigs = () => {
       }
       
       // Transform config data to wizard format AFTER metadata is loaded
+      const options = typeof fullConfig.options === 'string' 
+        ? JSON.parse(fullConfig.options) 
+        : (fullConfig.options || {});
+      
       setWizardData({
         name: fullConfig.name || '',
         source_connector_id: fullConfig.source_connector_id || '',
@@ -414,7 +419,10 @@ const SyncConfigs = () => {
         trigger_type: fullConfig.trigger_type || 'manual',
         schedule_cron: fullConfig.schedule_cron || '',
         sync_direction: fullConfig.sync_direction || 'one_way',
-        is_active: fullConfig.is_active !== undefined ? fullConfig.is_active : true
+        is_active: fullConfig.is_active !== undefined ? fullConfig.is_active : true,
+        sync_comments: options.sync_comments || false,
+        sync_links: options.sync_links || false,
+        sync_only_changed: options.sync_only_changed || false
       });
       
       // Show wizard LAST, after everything is loaded
@@ -871,6 +879,20 @@ const SyncConfigs = () => {
                   </label>
                   <small className="form-hint">
                     When enabled, parent-child and other work item relationships will be synced
+                  </small>
+                </div>
+
+                <div className="form-group">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={wizardData.sync_only_changed || false}
+                      onChange={e => setWizardData({ ...wizardData, sync_only_changed: e.target.checked })}
+                    />
+                    <span>Sync Only Changed Items</span>
+                  </label>
+                  <small className="form-hint">
+                    When enabled, only work items that have been modified since the last sync will be synchronized
                   </small>
                 </div>
 
