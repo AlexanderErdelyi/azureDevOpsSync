@@ -30,7 +30,16 @@ app.use(express.static('public'));
 // Apply rate limiting to API routes
 app.use('/api', apiLimiter);
 
-// Azure DevOps API routes
+// Multi-Connector API routes
+const connectorsRoutes = require('./routes/connectors');
+const metadataRoutes = require('./routes/metadata');
+const syncConfigsRoutes = require('./routes/sync-configs');
+
+app.use('/api/connectors', connectorsRoutes);
+app.use('/api/metadata', metadataRoutes);
+app.use('/api/sync-configs', syncConfigsRoutes);
+
+// Legacy Azure DevOps sync routes (deprecated, maintained for backward compatibility)
 const syncRoutes = require('./routes/sync');
 app.use('/api', syncRoutes);
 
