@@ -155,10 +155,20 @@ const SyncConfigs = () => {
   };
 
   const handleSubmit = async () => {
-    try {      if (editingConfigId) {
-        await syncConfigApi.updateSyncConfig(editingConfigId, wizardData);
+    try {
+      // Prepare options object with sync settings
+      const configData = {
+        ...wizardData,
+        options: {
+          sync_comments: wizardData.sync_comments || false,
+          sync_links: wizardData.sync_links || false
+        }
+      };
+      
+      if (editingConfigId) {
+        await syncConfigApi.updateSyncConfig(editingConfigId, configData);
       } else {
-        await syncConfigApi.createSyncConfig(wizardData);
+        await syncConfigApi.createSyncConfig(configData);
       }
       await loadData();
       setShowWizard(false);
@@ -834,6 +844,34 @@ const SyncConfigs = () => {
                     />
                     <span>Enable this configuration</span>
                   </label>
+                </div>
+
+                <div className="form-group">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={wizardData.sync_comments || false}
+                      onChange={e => setWizardData({ ...wizardData, sync_comments: e.target.checked })}
+                    />
+                    <span>Sync Comments</span>
+                  </label>
+                  <small className="form-hint">
+                    When enabled, comments from source work items will be synced to target work items
+                  </small>
+                </div>
+
+                <div className="form-group">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={wizardData.sync_links || false}
+                      onChange={e => setWizardData({ ...wizardData, sync_links: e.target.checked })}
+                    />
+                    <span>Sync Work Item Links</span>
+                  </label>
+                  <small className="form-hint">
+                    When enabled, parent-child and other work item relationships will be synced
+                  </small>
                 </div>
 
                 {/* Summary */}

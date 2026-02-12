@@ -330,6 +330,56 @@ router.post('/validate/:configId', async (req, res) => {
 });
 
 /**
+ * POST /api/execute/preview/:configId
+ * Preview what would be synced without executing
+ * Optional body: { direction: 'source-to-target', work_item_ids: [1, 2, 3] }
+ */
+router.post('/preview/:configId', async (req, res) => {
+  const { configId } = req.params;
+  const { direction = 'source-to-target', work_item_ids = null } = req.body;
+  
+  try {
+    // Load sync configuration
+    const config = await db('sync_configs').where({ id: configId }).first();
+    
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        error: 'Sync configuration not found'
+      });
+    }
+    
+    if (!config.is_active) {
+      return res.status(400).json({
+        success: false,
+        error: 'Sync configuration is not active'
+      });
+    }
+    
+    // Initialize sync engine
+    const syncEngine = new SyncEngine(config);
+    await syncEngine.initialize();
+    
+    // Get preview
+    const result = await syncEngine.preview({
+      direction,
+      work_item_ids
+    });
+    
+    res.json(result);
+    
+  } catch (error) {
+    console.error('Sync preview error:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Sync preview failed',
+      message: error.message
+    });
+  }
+});
+
+/**
  * POST /api/execute/test-mapping
  * Test field mapping with sample data
  * Body: { sync_config_id, sample_source_item }

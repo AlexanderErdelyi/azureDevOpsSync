@@ -33,9 +33,9 @@ const router = express.Router();
  * GET /api/scheduler/status
  * Get scheduler status
  */
-router.get('/scheduler/status', (req, res) => {
+router.get('/scheduler/status', async (req, res) => {
   try {
-    const status = scheduler.getStatus();
+    const status = await scheduler.getStatus();
     res.json({
       success: true,
       scheduler: status
