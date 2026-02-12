@@ -35,9 +35,10 @@ const Conflicts = () => {
   const loadConfigs = async () => {
     try {
       const response = await syncConfigApi.getSyncConfigs();
-      setConfigs(response.data);
+      setConfigs(response.data.configs || []);
     } catch (error) {
       console.error('Failed to load configs:', error);
+      setConfigs([]);
     }
   };
 

@@ -95,6 +95,16 @@ const Metadata = () => {
     }
   };
 
+  const toggleField = async (fieldId, currentEnabled) => {
+    try {
+      await metadataApi.updateField(fieldId, { is_enabled: !currentEnabled });
+      await loadMetadata();
+    } catch (error) {
+      console.error('Error toggling field:', error);
+      alert('Error updating field: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
   const getFieldsForType = () => {
     if (!selectedType) return fields;
     return fields.filter(f => f.work_item_type === selectedType);
@@ -353,6 +363,8 @@ const Metadata = () => {
                             <th>Work Item Type</th>
                             <th>Required</th>
                             <th>Read Only</th>
+                            <th>Enabled</th>
+                            <th>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -389,6 +401,34 @@ const Metadata = () => {
                                 ) : (
                                   <XCircle size={16} style={{ color: '#9ca3af' }} />
                                 )}
+                              </td>
+                              <td>
+                                {field.enabled_for_sync ? (
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#10b981' }}>
+                                    <CheckCircle size={16} /> Enabled
+                                  </span>
+                                ) : (
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#9ca3af' }}>
+                                    <XCircle size={16} /> Disabled
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                <button
+                                  onClick={() => toggleField(field.id, field.enabled_for_sync)}
+                                  className="btn btn-sm"
+                                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                >
+                                  {field.enabled_for_sync ? (
+                                    <>
+                                      <EyeOff size={16} /> Disable
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Eye size={16} /> Enable
+                                    </>
+                                  )}
+                                </button>
                               </td>
                             </tr>
                           ))}

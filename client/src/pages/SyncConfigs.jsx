@@ -11,9 +11,11 @@ import {
   Settings,
   Filter,
   Zap,
-  Edit
+  Edit,
+  Play,
+  RefreshCw
 } from 'lucide-react';
-import { connectorApi, metadataApi, syncConfigApi } from '../services/api';
+import { connectorApi, metadataApi, syncConfigApi, executeApi } from '../services/api';
 import './SyncConfigs.css';
 
 const STEPS = [
@@ -40,6 +42,7 @@ const SyncConfigs = () => {
   const [sourceMetadata, setSourceMetadata] = useState(null);
   const [targetMetadata, setTargetMetadata] = useState(null);
   const [editingConfigId, setEditingConfigId] = useState(null);
+  const [executingConfigId, setExecutingConfigId] = useState(null);
 
   const [wizardData, setWizardData] = useState({
     name: '',
@@ -77,7 +80,7 @@ const SyncConfigs = () => {
 
   const loadMetadata = async (connectorId, type) => {
     try {
-      const res = await metadataApi.getWorkItemTypes(connectorId);
+      const res = await metadataApi.getWorkItemTypes(connectorId, true); // Pass true for enabled_only
       const types = res.data.work_item_types || [];
       
       // Store full objects so we have both name and ID
@@ -204,6 +207,13 @@ const SyncConfigs = () => {
         i === index ? { ...tm, [field]: value } : tm
       )
     }));
+    
+    // Load fields when a type is selected
+    if (field === 'source_type' && value) {
+      loadFieldsForType(wizardData.source_connector_id, value, 'source');
+    } else if (field === 'target_type' && value) {
+      loadFieldsForType(wizardData.target_connector_id, value, 'target');
+    }
   };
 
   const removeTypeMapping = (index) => {
@@ -308,6 +318,133 @@ const SyncConfigs = () => {
     }
   };
 
+  const editConfig = async (config) => {
+    try {
+      // Fetch full config details including type mappings, field mappings, and status mappings
+      const response = await syncConfigApi.getSyncConfig(config.id);
+      const fullConfig = response.data.sync_config;
+      
+      setEditingConfigId(config.id);
+      setCurrentStep(1);
+      
+      // Load metadata for source and target connectors BEFORE showing wizard
+      if (fullConfig.source_connector_id) {
+        const sourceTypesRes = await metadataApi.getWorkItemTypes(fullConfig.source_connector_id, true);
+        const sourceTypes = sourceTypesRes.data.work_item_types || [];
+        const sourceTypeMap = {};
+        sourceTypes.forEach(t => { sourceTypeMap[t.type_name] = t; });
+        
+        // Load fields and statuses for all source types in type_mappings
+        const sourceFieldsMap = {};
+        const sourceStatusesMap = {};
+        for (const tm of fullConfig.type_mappings) {
+          if (tm.source_type && sourceTypeMap[tm.source_type]) {
+            try {
+              const [fieldsRes, statusesRes] = await Promise.all([
+                metadataApi.getWorkItemFields(fullConfig.source_connector_id, sourceTypeMap[tm.source_type].id),
+                metadataApi.getStatuses(fullConfig.source_connector_id, sourceTypeMap[tm.source_type].id)
+              ]);
+              
+              sourceFieldsMap[tm.source_type] = (fieldsRes.data.fields || []).map(f => f.field_name);
+              sourceStatusesMap[tm.source_type] = (statusesRes.data.statuses || []).map(s => s.status_name);
+            } catch (err) {
+              console.error(`Error loading metadata for source type ${tm.source_type}:`, err);
+            }
+          }
+        }
+        
+        setSourceMetadata({ 
+          types: Object.keys(sourceTypeMap), 
+          typeMap: sourceTypeMap, 
+          fields: sourceFieldsMap, 
+          statuses: sourceStatusesMap 
+        });
+      }
+      
+      if (fullConfig.target_connector_id) {
+        const targetTypesRes = await metadataApi.getWorkItemTypes(fullConfig.target_connector_id, true);
+        const targetTypes = targetTypesRes.data.work_item_types || [];
+        const targetTypeMap = {};
+        targetTypes.forEach(t => { targetTypeMap[t.type_name] = t; });
+        
+        // Load fields and statuses for all target types in type_mappings
+        const targetFieldsMap = {};
+        const targetStatusesMap = {};
+        for (const tm of fullConfig.type_mappings) {
+          if (tm.target_type && targetTypeMap[tm.target_type]) {
+            try {
+              const [fieldsRes, statusesRes] = await Promise.all([
+                metadataApi.getWorkItemFields(fullConfig.target_connector_id, targetTypeMap[tm.target_type].id),
+                metadataApi.getStatuses(fullConfig.target_connector_id, targetTypeMap[tm.target_type].id)
+              ]);
+              
+              targetFieldsMap[tm.target_type] = (fieldsRes.data.fields || []).map(f => f.field_name);
+              targetStatusesMap[tm.target_type] = (statusesRes.data.statuses || []).map(s => s.status_name);
+            } catch (err) {
+              console.error(`Error loading metadata for target type ${tm.target_type}:`, err);
+            }
+          }
+        }
+        
+        setTargetMetadata({ 
+          types: Object.keys(targetTypeMap), 
+          typeMap: targetTypeMap, 
+          fields: targetFieldsMap, 
+          statuses: targetStatusesMap 
+        });
+      }
+      
+      // Transform config data to wizard format AFTER metadata is loaded
+      setWizardData({
+        name: fullConfig.name || '',
+        source_connector_id: fullConfig.source_connector_id || '',
+        target_connector_id: fullConfig.target_connector_id || '',
+        type_mappings: fullConfig.type_mappings || [],
+        filter_conditions: [],
+        trigger_type: fullConfig.trigger_type || 'manual',
+        schedule_cron: fullConfig.schedule_cron || '',
+        sync_direction: fullConfig.sync_direction || 'one_way',
+        is_active: fullConfig.is_active !== undefined ? fullConfig.is_active : true
+      });
+      
+      // Show wizard LAST, after everything is loaded
+      setShowWizard(true);
+    } catch (error) {
+      console.error('Error loading config for edit:', error);
+      alert('Error loading configuration: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const executeSync = async (configId, configName) => {
+    if (!confirm(`Execute sync for "${configName}"?`)) return;
+    
+    setExecutingConfigId(configId);
+    try {
+      const result = await executeApi.executeSync(configId);
+      
+      if (result.data.success) {
+        const stats = result.data;
+        alert(`✓ Sync completed successfully!\n\nCreated: ${stats.created || 0}\nUpdated: ${stats.updated || 0}\nSkipped: ${stats.skipped || 0}\nErrors: ${stats.errors || 0}`);
+        
+        // Optionally navigate to monitoring page to see details
+        if (stats.executionId) {
+          const goToMonitoring = confirm('Would you like to view execution details in Monitoring?');
+          if (goToMonitoring) {
+            navigate('/monitoring');
+          }
+        }
+      } else {
+        alert('✗ Sync failed: ' + (result.data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error executing sync:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
+      alert(`✗ Sync execution failed:\n\n${errorMsg}\n\nPlease check:\n- Connectors are active and configured\n- Metadata has been discovered\n- Field mappings are correct`);
+    } finally {
+      setExecutingConfigId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="page">
@@ -339,7 +476,17 @@ const SyncConfigs = () => {
           {/* Progress Steps */}
           <div className="wizard-steps">
             {STEPS.map((step, index) => (
-              <div key={step.id} className={`wizard-step ${currentStep >= step.id ? 'active' : ''} ${currentStep === step.id ? 'current' : ''}`}>
+              <div 
+                key={step.id} 
+                className={`wizard-step ${currentStep >= step.id ? 'active' : ''} ${currentStep === step.id ? 'current' : ''}`}
+                onClick={() => {
+                  // Allow clicking to navigate to previous steps or current step when editing
+                  if (editingConfigId || step.id <= currentStep) {
+                    setCurrentStep(step.id);
+                  }
+                }}
+                style={{ cursor: (editingConfigId || step.id <= currentStep) ? 'pointer' : 'default' }}
+              >
                 <div className="step-number">
                   {currentStep > step.id ? <Check size={16} /> : step.id}
                 </div>
@@ -417,10 +564,11 @@ const SyncConfigs = () => {
                         <h3>Type Mapping {index + 1}</h3>
                         <button
                           type="button"
-                          className="btn btn-danger btn-sm"
+                          className="btn-icon-danger"
                           onClick={() => removeTypeMapping(index)}
+                          title="Remove mapping"
                         >
-                          <X size={16} /> Remove
+                          <Trash2 size={16} />
                         </button>
                       </div>
                       
@@ -705,8 +853,15 @@ const SyncConfigs = () => {
                       <span>{connectors.find(c => c.id == wizardData.target_connector_id)?.name || 'N/A'}</span>
                     </div>
                     <div className="summary-item">
+                      <label>Type Mappings:</label>
+                      <span>{wizardData.type_mappings?.length || 0} mappings</span>
+                    </div>
+                    <div className="summary-item">
                       <label>Field Mappings:</label>
-                      <span>{wizardData.field_mappings.length} mappings</span>
+                      <span>
+                        {wizardData.type_mappings?.reduce((total, tm) => 
+                          total + (tm.field_mappings?.length || 0), 0) || 0} mappings
+                      </span>
                     </div>
                     <div className="summary-item">
                       <label>Trigger:</label>
@@ -811,6 +966,18 @@ const SyncConfigs = () => {
                   </div>
 
                   <div className="config-card-actions">
+                    <button 
+                      className="btn-icon-action primary" 
+                      onClick={() => executeSync(config.id, config.name)} 
+                      title="Execute Sync"
+                      disabled={!config.is_active || executingConfigId === config.id}
+                    >
+                      {executingConfigId === config.id ? (
+                        <RefreshCw size={16} className="spin" />
+                      ) : (
+                        <Play size={16} />
+                      )}
+                    </button>
                     <button className="btn-icon-action" onClick={() => editConfig(config)} title="Edit">
                       <Edit size={16} />
                     </button>

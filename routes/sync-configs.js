@@ -72,28 +72,70 @@ router.get('/:id', async (req, res) => {
       });
     }
     
-    // Get field mappings
-    const fieldMappings = await db('sync_field_mappings')
-      .where({ sync_config_id: id })
-      .orderBy('source_field_id');
+    // Get type mappings with names
+    const typeMappings = await db('sync_type_mappings as stm')
+      .select(
+        'stm.id',
+        'stm.sync_config_id',
+        'sourceType.type_name as source_type',
+        'targetType.type_name as target_type',
+        'stm.is_active'
+      )
+      .leftJoin('connector_work_item_types as sourceType', 'stm.source_type_id', 'sourceType.id')
+      .leftJoin('connector_work_item_types as targetType', 'stm.target_type_id', 'targetType.id')
+      .where({ 'stm.sync_config_id': id })
+      .orderBy('stm.id');
     
-    // Get status mappings
-    const statusMappings = await db('sync_status_mappings')
-      .where({ sync_config_id: id })
-      .orderBy('source_status_id');
+    // Get field mappings with names grouped by type_mapping_id
+    const fieldMappings = await db('sync_field_mappings as sfm')
+      .select(
+        'sfm.type_mapping_id',
+        'sourceField.field_name as source_field',
+        'sourceField.field_reference as source_field_reference',
+        'targetField.field_name as target_field',
+        'targetField.field_reference as target_field_reference',
+        'sfm.transformation_function as transformation',
+        'sfm.is_active'
+      )
+      .leftJoin('connector_fields as sourceField', 'sfm.source_field_id', 'sourceField.id')
+      .leftJoin('connector_fields as targetField', 'sfm.target_field_id', 'targetField.id')
+      .whereIn('sfm.type_mapping_id', typeMappings.map(tm => tm.id));
     
-    // Get type mappings
-    const typeMappings = await db('sync_type_mappings')
-      .where({ sync_config_id: id })
-      .orderBy('source_type_id');
+    // Get status mappings with names grouped by type_mapping_id
+    const statusMappings = await db('sync_status_mappings as ssm')
+      .select(
+        'ssm.type_mapping_id',
+        'sourceStatus.status_name as source_status',
+        'targetStatus.status_name as target_status'
+      )
+      .leftJoin('connector_statuses as sourceStatus', 'ssm.source_status_id', 'sourceStatus.id')
+      .leftJoin('connector_statuses as targetStatus', 'ssm.target_status_id', 'targetStatus.id')
+      .whereIn('ssm.type_mapping_id', typeMappings.map(tm => tm.id));
+    
+    // Group field and status mappings by type_mapping_id
+    const typeMappingsWithDetails = typeMappings.map(tm => ({
+      source_type: tm.source_type,
+      target_type: tm.target_type,
+      field_mappings: fieldMappings
+        .filter(fm => fm.type_mapping_id === tm.id)
+        .map(fm => ({
+          source_field: fm.source_field,
+          target_field: fm.target_field,
+          transformation: fm.transformation || 'none'
+        })),
+      status_mappings: statusMappings
+        .filter(sm => sm.type_mapping_id === tm.id)
+        .map(sm => ({
+          source_status: sm.source_status,
+          target_status: sm.target_status
+        }))
+    }));
     
     res.json({
       success: true,
       sync_config: {
         ...config,
-        field_mappings: fieldMappings,
-        status_mappings: statusMappings,
-        type_mappings: typeMappings
+        type_mappings: typeMappingsWithDetails
       }
     });
   } catch (error) {
@@ -300,7 +342,18 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = {};
+    const {
+      name,
+      description,
+      type_mappings = [],
+      direction,
+      trigger_type,
+      schedule_cron,
+      conflict_resolution,
+      is_active,
+      sync_filter,
+      options
+    } = req.body;
     
     // Check if exists
     const existing = await db('sync_configs').where({ id }).first();
@@ -311,28 +364,142 @@ router.put('/:id', async (req, res) => {
       });
     }
     
-    // Build update object
-    const allowedUpdates = ['name', 'description', 'direction', 'trigger_type', 
-                            'schedule_cron', 'conflict_resolution', 'is_active', 
-                            'sync_filter', 'options'];
-    
-    for (const field of allowedUpdates) {
-      if (req.body[field] !== undefined) {
-        if (field === 'is_active') {
-          updates[field] = req.body[field] ? 1 : 0;
-        } else if (field === 'options' || field === 'sync_filter') {
-          updates[field] = JSON.stringify(req.body[field]);
-        } else {
-          updates[field] = req.body[field];
+    // Use transaction to update config and all mappings atomically
+    await db.transaction(async (trx) => {
+      // Build update object for main config
+      const updates = { updated_at: new Date() };
+      
+      const allowedUpdates = ['name', 'description', 'direction', 'trigger_type', 
+                              'schedule_cron', 'conflict_resolution', 'is_active', 
+                              'sync_filter', 'options'];
+      
+      for (const field of allowedUpdates) {
+        if (req.body[field] !== undefined) {
+          if (field === 'is_active') {
+            updates[field] = req.body[field] ? 1 : 0;
+          } else if (field === 'options' || field === 'sync_filter') {
+            updates[field] = JSON.stringify(req.body[field]);
+          } else {
+            updates[field] = req.body[field];
+          }
         }
       }
-    }
-    
-    updates.updated_at = new Date();
-    
-    await db('sync_configs')
-      .where({ id })
-      .update(updates);
+      
+      // Update main config
+      await trx('sync_configs').where({ id }).update(updates);
+      
+      // If type_mappings are provided, replace all existing mappings
+      if (type_mappings && type_mappings.length > 0) {
+        // Get existing type mapping IDs
+        const existingTypeMappingIds = await trx('sync_type_mappings')
+          .where({ sync_config_id: id })
+          .pluck('id');
+        
+        // Delete all existing field and status mappings
+        if (existingTypeMappingIds.length > 0) {
+          await trx('sync_field_mappings').whereIn('type_mapping_id', existingTypeMappingIds).del();
+          await trx('sync_status_mappings').whereIn('type_mapping_id', existingTypeMappingIds).del();
+        }
+        
+        // Delete all existing type mappings
+        await trx('sync_type_mappings').where({ sync_config_id: id }).del();
+        
+        // Create new type mappings (same logic as POST)
+        for (const typeMapping of type_mappings) {
+          if (!typeMapping.source_type || !typeMapping.target_type) continue;
+          
+          // Find work item type IDs by name
+          const sourceType = await trx('connector_work_item_types')
+            .where({
+              connector_id: existing.source_connector_id,
+              type_name: typeMapping.source_type
+            })
+            .first();
+            
+          const targetType = await trx('connector_work_item_types')
+            .where({
+              connector_id: existing.target_connector_id,
+              type_name: typeMapping.target_type
+            })
+            .first();
+            
+          if (!sourceType || !targetType) {
+            console.warn(`Type mapping skipped: ${typeMapping.source_type} -> ${typeMapping.target_type} (type not found)`);
+            continue;
+          }
+          
+          // Create type mapping
+          const [typeMappingId] = await trx('sync_type_mappings').insert({
+            sync_config_id: id,
+            source_type_id: sourceType.id,
+            target_type_id: targetType.id,
+            is_active: true,
+            created_at: new Date()
+          });
+          
+          // Create field mappings
+          for (const fieldMapping of (typeMapping.field_mappings || [])) {
+            if (!fieldMapping.source_field || !fieldMapping.target_field) continue;
+            
+            const sourceField = await trx('connector_fields')
+              .where({ work_item_type_id: sourceType.id })
+              .andWhere(function() {
+                this.where('field_name', fieldMapping.source_field)
+                    .orWhere('field_reference', fieldMapping.source_field);
+              })
+              .first();
+              
+            const targetField = await trx('connector_fields')
+              .where({ work_item_type_id: targetType.id })
+              .andWhere(function() {
+                this.where('field_name', fieldMapping.target_field)
+                    .orWhere('field_reference', fieldMapping.target_field);
+              })
+              .first();
+              
+            if (sourceField && targetField) {
+              await trx('sync_field_mappings').insert({
+                type_mapping_id: typeMappingId,
+                source_field_id: sourceField.id,
+                target_field_id: targetField.id,
+                transformation_function: fieldMapping.transformation || null,
+                is_active: true,
+                created_at: new Date()
+              });
+            }
+          }
+          
+          // Create status mappings
+          for (const statusMapping of (typeMapping.status_mappings || [])) {
+            if (!statusMapping.source_status || !statusMapping.target_status) continue;
+            
+            const sourceStatus = await trx('connector_statuses')
+              .where({
+                work_item_type_id: sourceType.id,
+                status_name: statusMapping.source_status
+              })
+              .first();
+              
+            const targetStatus = await trx('connector_statuses')
+              .where({
+                work_item_type_id: targetType.id,
+                status_name: statusMapping.target_status
+              })
+              .first();
+              
+            if (sourceStatus && targetStatus) {
+              await trx('sync_status_mappings').insert({
+                type_mapping_id: typeMappingId,
+                source_status_id: sourceStatus.id,
+                target_status_id: targetStatus.id,
+                is_active: true,
+                created_at: new Date()
+              });
+            }
+          }
+        }
+      }
+    });
     
     res.json({
       success: true,

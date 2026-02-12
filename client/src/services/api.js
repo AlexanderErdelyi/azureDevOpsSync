@@ -36,6 +36,7 @@ export const metadataApi = {
     typeId ? api.get('/metadata/statuses', { params: { connector_id: connectorId, type_id: typeId } })
           : api.get('/metadata/statuses', { params: { connector_id: connectorId } }),
   updateWorkItemType: (id, data) => api.put(`/metadata/work-item-types/${id}`, data),
+  updateField: (id, data) => api.put(`/metadata/fields/${id}`, data),
   suggestMappings: (sourceConnectorId, sourceTypeId, targetConnectorId, targetTypeId) => 
     api.get('/metadata/suggest-mappings', { 
       params: { 
@@ -102,6 +103,15 @@ export const conflictsApi = {
   resolveBatch: (conflictIds, strategy) => api.post('/conflicts/resolve-batch', { conflict_ids: conflictIds, strategy }),
   ignoreConflict: (id) => api.post(`/conflicts/${id}/ignore`),
   getStats: (configId) => api.get(`/conflicts/stats/${configId}`)
+};
+
+export const settingsApi = {
+  getSettings: (prefix = null) => api.get('/settings', { params: prefix ? { prefix } : {} }),
+  getSetting: (key) => api.get(`/settings/${key}`),
+  updateSettings: (settings) => api.put('/settings', { settings }),
+  updateSetting: (key, value, valueType = 'string', description = '') => 
+    api.put(`/settings/${key}`, { value, value_type: valueType, description }),
+  testSmtp: (toEmail) => api.post('/settings/test-smtp', { to_email: toEmail })
 };
 
 export default api;
