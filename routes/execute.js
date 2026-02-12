@@ -8,6 +8,7 @@ const router = express.Router();
 const { db } = require('../database/db');
 const { registry } = require('../lib/connectors');
 const mappingEngine = require('../lib/mapping/MappingEngine');
+const SyncEngine = require('../lib/SyncEngine');
 
 /**
  * POST /api/execute/sync/:configId
@@ -16,9 +17,7 @@ const mappingEngine = require('../lib/mapping/MappingEngine');
  */
 router.post('/sync/:configId', async (req, res) => {
   const { configId } = req.params;
-  const { work_item_ids = null, dry_run = false } = req.body;
-  
-  let executionId = null;
+  const { work_item_ids = null, dry_run = false, direction = 'source-to-target' } = req.body;
   
   try {
     // Load sync configuration
@@ -38,210 +37,29 @@ router.post('/sync/:configId', async (req, res) => {
       });
     }
     
-    // Create execution record
-    if (!dry_run) {
-      [executionId] = await db('sync_executions').insert({
-        sync_config_id: configId,
-        source_connector_id: config.source_connector_id,
-        target_connector_id: config.target_connector_id,
-        status: 'running',
-        started_at: new Date(),
-        created_at: new Date(),
-        updated_at: new Date()
-      });
-    }
+    // Initialize sync engine
+    const syncEngine = new SyncEngine(config);
+    await syncEngine.initialize();
     
-    // Get connectors
-    const sourceConnector = await registry.get(config.source_connector_id);
-    const targetConnector = await registry.get(config.target_connector_id);
-    
-    // Connect to both connectors
-    await sourceConnector.connect();
-    await targetConnector.connect();
-    
-    // Query work items from source
-    let query = config.sync_filter ? JSON.parse(config.sync_filter) : null;
-    let sourceWorkItems;
-    
-    if (work_item_ids && work_item_ids.length > 0) {
-      // Sync specific work items
-      sourceWorkItems = await Promise.all(
-        work_item_ids.map(id => sourceConnector.getWorkItem(id))
-      );
-    } else if (query) {
-      // Query with filter
-      sourceWorkItems = await sourceConnector.queryWorkItems(query);
-    } else {
-      // No filter - return error (require explicit filter or IDs)
-      throw new Error('Must specify either work_item_ids or configure sync_filter');
-    }
-    
-    // Load mappings
-    const mappings = await mappingEngine.loadMappings(configId);
-    
-    // Process each work item
-    const results = {
-      total: sourceWorkItems.length,
-      created: 0,
-      updated: 0,
-      skipped: 0,
-      errors: 0,
-      items: []
-    };
-    
-    for (const sourceItem of sourceWorkItems) {
-      try {
-        // Map the work item
-        const mapped = await mappingEngine.mapWorkItem(sourceItem, configId, {
-          sourceConnector: sourceConnector.getName(),
-          targetConnector: targetConnector.getName()
-        });
-        
-        // Check if work item already synced
-        const existing = await db('synced_items')
-          .where({
-            sync_config_id: configId,
-            source_connector_id: config.source_connector_id,
-            source_item_id: sourceItem.id.toString()
-          })
-          .first();
-        
-        let targetId = existing ? existing.target_item_id : null;
-        let action = 'skipped';
-        
-        if (dry_run) {
-          action = existing ? 'would_update' : 'would_create';
-        } else {
-          if (existing) {
-            // Update existing work item
-            await targetConnector.updateWorkItem(targetId, mapped.fields);
-            action = 'updated';
-            results.updated++;
-            
-            // Update synced_items record
-            await db('synced_items')
-              .where({ id: existing.id })
-              .update({
-                last_synced_at: new Date(),
-                sync_count: existing.sync_count + 1,
-                updated_at: new Date()
-              });
-          } else {
-            // Create new work item
-            const created = await targetConnector.createWorkItem(
-              mapped.type || 'Task',
-              mapped.fields
-            );
-            
-            targetId = created.id;
-            action = 'created';
-            results.created++;
-            
-            // Record in synced_items
-            await db('synced_items').insert({
-              sync_config_id: configId,
-              source_connector_id: config.source_connector_id,
-              target_connector_id: config.target_connector_id,
-              source_item_id: sourceItem.id.toString(),
-              target_item_id: targetId.toString(),
-              source_type: sourceItem.type || 'unknown',
-              target_type: mapped.type || 'Task',
-              last_synced_at: new Date(),
-              sync_count: 1,
-              created_at: new Date(),
-              updated_at: new Date()
-            });
-          }
-        }
-        
-        results.items.push({
-          source_id: sourceItem.id,
-          target_id: targetId,
-          action: action,
-          success: true
-        });
-        
-      } catch (error) {
-        console.error(`Error syncing work item ${sourceItem.id}:`, error);
-        results.errors++;
-        results.items.push({
-          source_id: sourceItem.id,
-          action: 'error',
-          success: false,
-          error: error.message
-        });
-        
-        // Log error if not dry run
-        if (!dry_run && executionId) {
-          await db('sync_errors').insert({
-            sync_execution_id: executionId,
-            sync_config_id: configId,
-            source_item_id: sourceItem.id.toString(),
-            error_type: 'sync_failed',
-            error_message: error.message,
-            stack_trace: error.stack,
-            created_at: new Date()
-          });
-        }
-      }
-    }
-    
-    // Update execution record
-    if (!dry_run && executionId) {
-      await db('sync_executions')
-        .where({ id: executionId })
-        .update({
-          status: results.errors > 0 ? 'completed_with_errors' : 'completed',
-          ended_at: new Date(),
-          items_synced: results.created + results.updated,
-          items_failed: results.errors,
-          updated_at: new Date()
-        });
-      
-      // Update sync config last_sync timestamp
-      await db('sync_configs')
-        .where({ id: configId })
-        .update({
-          last_sync_at: new Date(),
-          updated_at: new Date()
-        });
-    }
+    // Execute sync
+    const result = await syncEngine.execute({
+      work_item_ids,
+      dry_run,
+      direction
+    });
     
     res.json({
       success: true,
-      dry_run: dry_run,
-      execution_id: executionId,
-      results: results
+      ...result
     });
     
   } catch (error) {
     console.error('Sync execution error:', error);
     
-    // Update execution record with error
-    if (!dry_run && executionId) {
-      await db('sync_executions')
-        .where({ id: executionId })
-        .update({
-          status: 'failed',
-          ended_at: new Date(),
-          updated_at: new Date()
-        });
-      
-      await db('sync_errors').insert({
-        sync_execution_id: executionId,
-        sync_config_id: configId,
-        error_type: 'execution_failed',
-        error_message: error.message,
-        stack_trace: error.stack,
-        created_at: new Date()
-      });
-    }
-    
     res.status(500).json({
       success: false,
       error: 'Sync execution failed',
-      message: error.message,
-      execution_id: executionId
+      message: error.message
     });
   }
 });

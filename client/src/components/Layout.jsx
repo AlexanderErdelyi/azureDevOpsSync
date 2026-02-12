@@ -8,6 +8,7 @@ import {
   Clock, 
   Webhook, 
   Bell,
+  AlertTriangle,
   Menu,
   X
 } from 'lucide-react';
@@ -23,7 +24,8 @@ const Layout = ({ children }) => {
     { path: '/monitoring', icon: Activity, label: 'Monitoring' },
     { path: '/scheduler', icon: Clock, label: 'Scheduler' },
     { path: '/webhooks', icon: Webhook, label: 'Webhooks' },
-    { path: '/notifications', icon: Bell, label: 'Notifications' }
+    { path: '/notifications', icon: Bell, label: 'Notifications' },
+    { path: '/conflicts', icon: AlertTriangle, label: 'Conflicts' }
   ];
 
   return (
@@ -63,7 +65,7 @@ const Layout = ({ children }) => {
             {sidebarOpen && (
               <>
                 <div className="version-label">Version 1.0.0</div>
-                <div className="phase-label">Phase 6 UI</div>
+                <div className="phase-label">Phase 7: Conflicts</div>
               </>
             )}
           </div>

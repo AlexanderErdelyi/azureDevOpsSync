@@ -8,6 +8,7 @@ import Monitoring from './pages/Monitoring';
 import Scheduler from './pages/Scheduler';
 import Webhooks from './pages/Webhooks';
 import Notifications from './pages/Notifications';
+import Conflicts from './pages/Conflicts';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/scheduler" element={<Scheduler />} />
         <Route path="/webhooks" element={<Webhooks />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/conflicts" element={<Conflicts />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

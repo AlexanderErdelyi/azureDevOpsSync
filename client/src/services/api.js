@@ -77,4 +77,15 @@ export const notificationApi = {
   testConfiguration: (recipients) => api.post('/notifications/test', { recipients })
 };
 
+export const conflictsApi = {
+  getConflicts: (params = {}) => api.get('/conflicts', { params }),
+  getConflict: (id) => api.get(`/conflicts/${id}`),
+  resolveManually: (id, resolvedValue, rationale, resolvedBy = 'user') => 
+    api.post(`/conflicts/${id}/resolve`, { resolved_value: resolvedValue, rationale, resolved_by: resolvedBy }),
+  resolveAuto: (id, strategy = null) => api.post(`/conflicts/${id}/resolve-auto`, { strategy }),
+  resolveBatch: (conflictIds, strategy) => api.post('/conflicts/resolve-batch', { conflict_ids: conflictIds, strategy }),
+  ignoreConflict: (id) => api.post(`/conflicts/${id}/ignore`),
+  getStats: (configId) => api.get(`/conflicts/stats/${configId}`)
+};
+
 export default api;
