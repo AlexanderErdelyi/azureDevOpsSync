@@ -5,6 +5,10 @@ const path = require('path');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+// Database and connectors
+const { testConnection } = require('./database/db');
+const { initializeConnectors } = require('./lib/connectors');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -40,8 +44,38 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Azure DevOps Sync Server running on http://localhost:${PORT}`);
-  console.log(`Access the web interface at http://localhost:${PORT}`);
-});
+// Initialize database and connectors, then start server
+async function startServer() {
+  try {
+    console.log('Initializing server...');
+    
+    // Test database connection
+    const dbOk = await testConnection();
+    if (dbOk) {
+      console.log('✓ Database connection successful');
+    } else {
+      console.error('✗ Database connection failed');
+      console.error('Run `node database/setup.js` to initialize the database');
+      process.exit(1);
+    }
+
+    // Initialize connectors
+    await initializeConnectors();
+    console.log('✓ Connector registry initialized');
+
+    // Start server
+    app.listen(PORT, () => {
+      console.log('');
+      console.log('='.repeat(60));
+      console.log(`Multi-Connector Sync Server running on http://localhost:${PORT}`);
+      console.log(`Access the web interface at http://localhost:${PORT}`);
+      console.log('='.repeat(60));
+      console.log('');
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();

@@ -1,47 +1,119 @@
-# Azure DevOps Work Item Sync
+# Multi-Connector Sync Platform
 
-A web application to sync work items between Azure DevOps projects with MCP (Model Context Protocol) support and GitHub Copilot CLI integration.
+A flexible platform for synchronizing work items between multiple project management systems (Azure DevOps, ServiceDesk Plus, and more) with MCP (Model Context Protocol) support and GitHub Copilot CLI integration.
 
 ## Features
 
+### Core Capabilities
+- 🔌 **Multi-Connector Architecture** - Support for Azure DevOps, ManageEngine ServiceDesk Plus, and extensible plugin system
+- 💾 **SQLite Database** - Persistent storage for connectors, sync configurations, and field mappings
+- 🔒 **Encrypted Credentials** - AES-256-GCM encryption for secure credential storage
+- 🔄 **Bidirectional Sync** - Create, update, and query work items across systems
+- 📊 **Metadata Discovery** - Automatic detection of work item types, fields, and statuses
+
+### Sync Features
 - 🔄 **Comprehensive field synchronization** - Syncs ALL work item fields (not just a subset)
-- 🎯 **Smart field mapping** - Automatically handles Area Path, Iteration Path, and project-specific fields
-- 🔍 **Dynamic field metadata** - Retrieves field definitions from Azure DevOps to validate compatibility
+- 🎯 **Smart field mapping** - Configurable field transformations between systems
+- 🔍 **Dynamic field metadata** - Retrieves field definitions to validate compatibility
 - ⚙️ **Configurable sync options** - Exclude fields, apply custom mappings, and control sync behavior
-- 🌐 Modern web interface for easy configuration
 - 🔌 MCP (Model Context Protocol) server for programmatic access
 - 💬 GitHub Copilot CLI integration for natural language commands
-- 🔐 Secure authentication with Personal Access Tokens
 - 📊 Real-time sync status and detailed results
 
 **📖 Documentation:**
 - [Enhanced Sync](docs/ENHANCED_SYNC.md) - Field synchronization details
 - [Dynamic Field Metadata](docs/DYNAMIC_FIELD_METADATA.md) - Intelligent field validation
+- [Architecture](docs/ARCHITECTURE.md) - System design and connector architecture
 
 ## Prerequisites
 
 - Node.js (v14 or higher)
-- Azure DevOps Personal Access Token (PAT) with work item read/write permissions
-- Azure DevOps organization and projects
+- Connector credentials:
+  - **Azure DevOps**: Personal Access Token (PAT) with work item read/write permissions
+  - **ServiceDesk Plus**: API Key/Auth Token from administrator
 
-## Installation
+## Quick Start
 
-1. Clone the repository:
+### 1. Installation
+
 ```bash
 git clone https://github.com/AlexanderErdelyi/azureDevOpsSync.git
 cd azureDevOpsSync
-```
-
-2. Install dependencies:
-```bash
 npm install
 ```
 
-3. Create a `.env` file (optional, for default configuration):
+### 2. Database Setup
+
+Initialize the SQLite database with required tables:
+
 ```bash
-cp .env.example .env
-# Edit .env and add your Azure DevOps credentials
+node database/setup.js
 ```
+
+This creates 13 tables for connectors, sync configurations, field mappings, and execution history.
+
+### 3. Add Your First Connector
+
+Use the interactive script to add a connector:
+
+```bash
+node scripts/add-connector.js
+```
+
+**Example for Azure DevOps:**
+```
+Select connector type (1-2): 1
+Connector name: My Azure DevOps
+Organization URL: https://dev.azure.com/myorg
+Project name: MyProject
+Personal Access Token (PAT): ****
+```
+
+**Example for ServiceDesk Plus:**
+```
+Select connector type (1-2): 2
+Connector name: My ServiceDesk
+Server URL: https://sdpondemand.manageengine.com
+Site/Portal name: mysite
+API Key/Auth Token: ****
+```
+
+### 4. Test Connection
+
+Verify your connector works:
+
+```bash
+node scripts/test-connectors.js
+```
+
+Expected output:
+```
+✓ Loaded: My Azure DevOps (azuredevops)
+✓ Connection successful
+```
+
+### 5. Discover Metadata
+
+Query your connector for available work item types, fields, and statuses:
+
+```bash
+node scripts/discover-metadata.js <connector-id>
+```
+
+Example:
+```bash
+node scripts/discover-metadata.js 1
+```
+
+This saves the metadata to the database for use in sync configurations.
+
+### 6. Start the Server
+
+```bash
+npm start
+```
+
+Server will be available at `http://localhost:3000`
 
 ## Usage
 
