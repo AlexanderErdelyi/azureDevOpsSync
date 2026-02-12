@@ -4,12 +4,19 @@ A web application to sync work items between Azure DevOps projects with MCP (Mod
 
 ## Features
 
-- 🔄 Sync work items between Azure DevOps projects
+- 🔄 **Comprehensive field synchronization** - Syncs ALL work item fields (not just a subset)
+- 🎯 **Smart field mapping** - Automatically handles Area Path, Iteration Path, and project-specific fields
+- 🔍 **Dynamic field metadata** - Retrieves field definitions from Azure DevOps to validate compatibility
+- ⚙️ **Configurable sync options** - Exclude fields, apply custom mappings, and control sync behavior
 - 🌐 Modern web interface for easy configuration
 - 🔌 MCP (Model Context Protocol) server for programmatic access
-- 💬 GitHub Copilot CLI integration
+- 💬 GitHub Copilot CLI integration for natural language commands
 - 🔐 Secure authentication with Personal Access Tokens
-- 📊 Real-time sync status and results
+- 📊 Real-time sync status and detailed results
+
+**📖 Documentation:**
+- [Enhanced Sync](docs/ENHANCED_SYNC.md) - Field synchronization details
+- [Dynamic Field Metadata](docs/DYNAMIC_FIELD_METADATA.md) - Intelligent field validation
 
 ## Prerequisites
 
@@ -60,28 +67,44 @@ npm run dev
 5. Optionally specify work item IDs (leave empty to sync all)
 6. Click "Start Sync" to begin synchronization
 
-### Using the MCP Server
+### Using the MCP Server with GitHub Copilot CLI
 
-The MCP server allows programmatic access to Azure DevOps sync functionality.
+The MCP server allows programmatic access to Azure DevOps sync functionality through GitHub Copilot CLI.
 
 #### Configuration
 
-Create or edit your MCP settings file (e.g., `~/.config/mcp/settings.json`):
+Create or edit your Copilot CLI MCP configuration file at `~/.copilot/mcp-config.json`:
 
 ```json
 {
   "mcpServers": {
     "azure-devops-sync": {
       "command": "node",
-      "args": ["/path/to/azureDevOpsSync/mcp/server.js"],
+      "args": ["C:/VSCodeProjects/GitHub/azureDevOpsSync/mcp/server.js"],
       "env": {
         "AZURE_DEVOPS_ORG_URL": "https://dev.azure.com/your-organization",
-        "AZURE_DEVOPS_PAT": "your-personal-access-token"
+        "AZURE_DEVOPS_PAT": "${AZURE_DEVOPS_PAT}"
       }
     }
   }
 }
 ```
+
+> **Note**: Replace the path with the actual absolute path to your `mcp/server.js` file.
+
+#### Setting Up Environment Variables
+
+**Windows (PowerShell):**
+```powershell
+$env:AZURE_DEVOPS_PAT = "your-personal-access-token"
+```
+
+**macOS/Linux:**
+```bash
+export AZURE_DEVOPS_PAT="your-personal-access-token"
+```
+
+For permanent setup, add to your profile (`~/.bashrc`, `~/.zshrc`, or PowerShell profile).
 
 #### Available MCP Tools
 
@@ -101,12 +124,17 @@ Create or edit your MCP settings file (e.g., `~/.config/mcp/settings.json`):
    }
    ```
 
-3. **sync_work_items** - Sync work items between projects
+3. **sync_work_items** - Sync work items between projects (with all fields)
    ```json
    {
      "sourceProject": "ProjectA",
      "targetProject": "ProjectB",
-     "workItemIds": [123, 456, 789]
+     "workItemIds": [123, 456, 789],
+     "syncOptions": {
+       "excludedFields": ["System.History"],
+       "customMappings": {},
+       "verbose": true
+     }
    }
    ```
 
@@ -119,21 +147,21 @@ Create or edit your MCP settings file (e.g., `~/.config/mcp/settings.json`):
 
 ### Using with GitHub Copilot CLI
 
-Once the MCP server is configured, you can use GitHub Copilot CLI to interact with Azure DevOps:
+Once the MCP server is configured in `~/.copilot/mcp-config.json`, you can use GitHub Copilot CLI to interact with Azure DevOps:
 
 ```bash
-# Test connection
-gh copilot suggest "test my Azure DevOps connection"
+# Start Copilot CLI
+copilot
 
-# Get work items
-gh copilot suggest "get all work items from ProjectA"
-
-# Sync work items
-gh copilot suggest "sync work items from ProjectA to ProjectB"
-
-# Get specific work item details
-gh copilot suggest "get details for work item 123"
+# Then ask questions naturally:
+# - "Test my Azure DevOps connection"
+# - "Get all work items from ProjectA"
+# - "Sync work items from ProjectA to ProjectB"
+# - "Show details for work item 123"
+# - "Sync work item 456 excluding History and Tags fields"
 ```
+
+**📖 For detailed setup instructions, see [Copilot CLI Setup Guide](docs/COPILOT_CLI_SETUP.md)**
 
 ### API Endpoints
 

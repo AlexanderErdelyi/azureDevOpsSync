@@ -91,6 +91,27 @@ const TOOLS = [
           },
           description: 'Optional array of specific work item IDs to sync',
         },
+        syncOptions: {
+          type: 'object',
+          description: 'Optional sync configuration',
+          properties: {
+            excludedFields: {
+              type: 'array',
+              items: {
+                type: 'string',
+              },
+              description: 'Array of field names to exclude from sync',
+            },
+            customMappings: {
+              type: 'object',
+              description: 'Custom field value mappings',
+            },
+            verbose: {
+              type: 'boolean',
+              description: 'Return detailed sync information',
+            },
+          },
+        },
       },
       required: ['sourceProject', 'targetProject'],
     },
@@ -107,6 +128,24 @@ const TOOLS = [
         },
       },
       required: ['workItemId'],
+    },
+  },
+  {
+    name: 'get_work_item_type_fields',
+    description: 'Get field definitions for a work item type in a project',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: {
+          type: 'string',
+          description: 'Project name',
+        },
+        workItemType: {
+          type: 'string',
+          description: 'Work item type (e.g., Bug, Task, User Story)',
+        },
+      },
+      required: ['project', 'workItemType'],
     },
   },
 ];
@@ -155,18 +194,15 @@ async function executeTool(name, args) {
 
         const results = [];
         const errors = [];
+        const syncOptions = args.syncOptions || {};
 
         if (args.workItemIds && args.workItemIds.length > 0) {
           // Sync specific work items
           for (const id of args.workItemIds) {
             try {
               const sourceWorkItem = await syncClient.getWorkItem(id);
-              const targetWorkItem = await syncClient.syncWorkItem(sourceWorkItem, args.targetProject);
-              results.push({
-                sourceId: id,
-                targetId: targetWorkItem.id,
-                title: sourceWorkItem.fields['System.Title'],
-              });
+              const syncResult = await syncClient.syncWorkItemWithDetails(sourceWorkItem, args.targetProject, syncOptions);
+              results.push(syncResult);
             } catch (error) {
               errors.push({
                 workItemId: id,
@@ -183,12 +219,8 @@ async function executeTool(name, args) {
 
           for (const workItem of sourceWorkItems) {
             try {
-              const targetWorkItem = await syncClient.syncWorkItem(workItem, args.targetProject);
-              results.push({
-                sourceId: workItem.id,
-                targetId: targetWorkItem.id,
-                title: workItem.fields['System.Title'],
-              });
+              const syncResult = await syncClient.syncWorkItemWithDetails(workItem, args.targetProject, syncOptions);
+              results.push(syncResult);
             } catch (error) {
               errors.push({
                 workItemId: workItem.id,
@@ -226,6 +258,23 @@ async function executeTool(name, args) {
             createdDate: workItem.fields['System.CreatedDate'],
             changedDate: workItem.fields['System.ChangedDate'],
           },
+        };
+      }
+
+      case 'get_work_item_type_fields': {
+        const syncClient = getClient();
+        if (!syncClient) {
+          throw new Error('Azure DevOps client not configured. Set AZURE_DEVOPS_ORG_URL and AZURE_DEVOPS_PAT environment variables.');
+        }
+
+        const fieldMetadata = await syncClient.getWorkItemTypeFieldsWithReferences(args.project, args.workItemType);
+
+        return {
+          success: true,
+          project: args.project,
+          workItemType: args.workItemType,
+          fieldCount: Object.keys(fieldMetadata).length,
+          fields: fieldMetadata,
         };
       }
 
