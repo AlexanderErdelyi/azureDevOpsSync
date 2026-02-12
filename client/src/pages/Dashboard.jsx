@@ -175,14 +175,20 @@ const Dashboard = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon" style={{ background: stats.scheduler.isRunning ? '#10b981' : '#6b7280' }}>
+          <div className="stat-icon" style={{ 
+            background: stats.scheduler.status === 'healthy' ? '#10b981' : 
+                       stats.scheduler.status === 'degraded' ? '#f59e0b' : '#6b7280' 
+          }}>
             <Clock size={24} />
           </div>
           <div className="stat-content">
             <div className="stat-value">{stats.scheduler.jobCount}</div>
             <div className="stat-label">Scheduled Jobs</div>
             <div className="stat-subtext">
-              Scheduler {stats.scheduler.isRunning ? 'running' : 'stopped'}
+              {stats.scheduler.status === 'healthy' && '✓ Healthy'}
+              {stats.scheduler.status === 'degraded' && '⚠ Degraded'}
+              {stats.scheduler.status === 'stopped' && '✗ Stopped'}
+              {stats.scheduler.lastHeartbeat && ` • Heartbeat ${Math.floor(stats.scheduler.heartbeatAgeSeconds || 0)}s ago`}
             </div>
             <Link to="/scheduler" className="stat-link">
               Configure <ArrowRight size={14} />

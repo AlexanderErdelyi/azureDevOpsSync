@@ -59,6 +59,8 @@ export const syncConfigApi = {
 export const executeApi = {
   executeSyncDryRun: (configId, workItemIds = null) => api.post(`/execute/sync/${configId}`, { work_item_ids: workItemIds, dry_run: true }),
   executeSync: (configId, workItemIds = null) => api.post(`/execute/sync/${configId}`, { work_item_ids: workItemIds }),
+  previewSync: (configId, direction = 'source-to-target', workItemIds = null) => 
+    api.post(`/execute/preview/${configId}`, { direction, work_item_ids: workItemIds }),
   getExecutionHistory: (configId, limit = 50) => api.get(`/execute/history/${configId}`, { params: { limit } }),
   getExecutionDetails: (executionId) => api.get(`/execute/status/${executionId}`)
 };
