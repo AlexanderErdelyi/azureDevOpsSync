@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure DevOps Work Item Sync</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔄 Azure DevOps Work Item Sync</h1>
+            <p>Sync work items between Azure DevOps projects</p>
+        </header>
+
+        <div class="card">
+            <h2>Connection Settings</h2>
+            <form id="connectionForm">
+                <div class="form-group">
+                    <label for="orgUrl">Organization URL:</label>
+                    <input type="text" id="orgUrl" placeholder="https://dev.azure.com/your-organization" required>
+                </div>
+                <div class="form-group">
+                    <label for="token">Personal Access Token (PAT):</label>
+                    <input type="password" id="token" placeholder="Your Azure DevOps PAT" required>
+                </div>
+                <button type="button" onclick="testConnection()" class="btn btn-secondary">Test Connection</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Sync Configuration</h2>
+            <form id="syncForm">
+                <div class="form-group">
+                    <label for="sourceProject">Source Project:</label>
+                    <input type="text" id="sourceProject" placeholder="Source project name" required>
+                </div>
+                <div class="form-group">
+                    <label for="targetProject">Target Project:</label>
+                    <input type="text" id="targetProject" placeholder="Target project name" required>
+                </div>
+                <div class="form-group">
+                    <label for="workItemIds">Work Item IDs (optional, comma-separated):</label>
+                    <input type="text" id="workItemIds" placeholder="e.g., 123,456,789">
+                    <small>Leave empty to sync all work items from source project</small>
+                </div>
+                <button type="submit" class="btn btn-primary">Start Sync</button>
+            </form>
+        </div>
+
+        <div id="results" class="card" style="display: none;">
+            <h2>Sync Results</h2>
+            <div id="resultsContent"></div>
+        </div>
+
+        <div class="card info-card">
+            <h2>📚 Using with GitHub Copilot CLI</h2>
+            <p>You can interact with this application using GitHub Copilot CLI:</p>
+            <pre><code># Test connection
+gh copilot suggest "test Azure DevOps connection"
+
+# Sync work items
+gh copilot suggest "sync work items from ProjectA to ProjectB"
+
+# Get work items
+gh copilot suggest "get all work items from MyProject"</code></pre>
+        </div>
+
+        <div class="card info-card">
+            <h2>🔌 MCP Integration</h2>
+            <p>This application supports Model Context Protocol (MCP) for programmatic access.</p>
+            <p>MCP server is available for tool integration. See <code>mcp/server.js</code> for details.</p>
+        </div>
+    </div>
+
+    <div id="loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
