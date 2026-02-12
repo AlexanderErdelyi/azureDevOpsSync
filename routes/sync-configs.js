@@ -260,10 +260,24 @@ router.delete('/:id', async (req, res) => {
     
     // Delete in transaction
     await db.transaction(async (trx) => {
-      await trx('sync_executions').where({ sync_config_id: id }).del();
-      await trx('sync_field_mappings').where({ sync_config_id: id }).del();
-      await trx('sync_status_mappings').where({ sync_config_id: id }).del();
+      // First, get all type mapping IDs for this config
+      const typeMappingIds = await trx('sync_type_mappings')
+        .where({ sync_config_id: id })
+        .pluck('id');
+      
+      // Delete field and status mappings that reference these type mappings
+      if (typeMappingIds.length > 0) {
+        await trx('sync_field_mappings').whereIn('type_mapping_id', typeMappingIds).del();
+        await trx('sync_status_mappings').whereIn('type_mapping_id', typeMappingIds).del();
+      }
+      
+      // Delete type mappings
       await trx('sync_type_mappings').where({ sync_config_id: id }).del();
+      
+      // Delete execution history
+      await trx('sync_executions').where({ sync_config_id: id }).del();
+      
+      // Delete the config itself
       await trx('sync_configs').where({ id }).del();
     });
     

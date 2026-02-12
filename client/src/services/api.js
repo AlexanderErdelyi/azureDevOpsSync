@@ -56,10 +56,10 @@ export const syncConfigApi = {
 };
 
 export const executeApi = {
-  executeSyncDryRun: (configId, workItemIds = null) => api.post(`/execute/${configId}/dry-run`, { work_item_ids: workItemIds }),
-  executeSync: (configId, workItemIds = null) => api.post(`/execute/${configId}`, { work_item_ids: workItemIds }),
+  executeSyncDryRun: (configId, workItemIds = null) => api.post(`/execute/sync/${configId}`, { work_item_ids: workItemIds, dry_run: true }),
+  executeSync: (configId, workItemIds = null) => api.post(`/execute/sync/${configId}`, { work_item_ids: workItemIds }),
   getExecutionHistory: (configId, limit = 50) => api.get(`/execute/history/${configId}`, { params: { limit } }),
-  getExecutionDetails: (executionId) => api.get(`/execute/details/${executionId}`)
+  getExecutionDetails: (executionId) => api.get(`/execute/status/${executionId}`)
 };
 
 export const schedulerApi = {
