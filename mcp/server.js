@@ -129,7 +129,9 @@ async function executeTool(name, args) {
           throw new Error('Azure DevOps client not configured. Set AZURE_DEVOPS_ORG_URL and AZURE_DEVOPS_PAT environment variables.');
         }
 
-        const wiql = args.wiql || `SELECT [System.Id], [System.Title], [System.State] FROM WorkItems WHERE [System.TeamProject] = '${args.project}'`;
+        // Sanitize project name to prevent WIQL injection
+        const sanitizedProject = args.project.replace(/'/g, "''");
+        const wiql = args.wiql || `SELECT [System.Id], [System.Title], [System.State] FROM WorkItems WHERE [System.TeamProject] = '${sanitizedProject}'`;
         const workItems = await syncClient.getWorkItems(args.project, wiql);
 
         return {
@@ -173,7 +175,9 @@ async function executeTool(name, args) {
           }
         } else {
           // Sync all work items
-          const wiql = `SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '${args.sourceProject}'`;
+          // Sanitize project name to prevent WIQL injection
+          const sanitizedProject = args.sourceProject.replace(/'/g, "''");
+          const wiql = `SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '${sanitizedProject}'`;
           const sourceWorkItems = await syncClient.getWorkItems(args.sourceProject, wiql);
 
           for (const workItem of sourceWorkItems) {

@@ -46,7 +46,11 @@ async function testConnection() {
     const data = getConnectionData();
     
     if (!data.orgUrl || !data.token) {
-        alert('Please fill in Organization URL and Personal Access Token');
+        showResults(`
+            <div class="alert alert-error">
+                ⚠️ Please fill in Organization URL and Personal Access Token
+            </div>
+        `);
         return;
     }
 
@@ -94,7 +98,11 @@ syncForm.addEventListener('submit', async (e) => {
     const data = getSyncData();
     
     if (!data.orgUrl || !data.token || !data.sourceProject || !data.targetProject) {
-        alert('Please fill in all required fields');
+        showResults(`
+            <div class="alert alert-error">
+                ⚠️ Please fill in all required fields
+            </div>
+        `);
         return;
     }
 

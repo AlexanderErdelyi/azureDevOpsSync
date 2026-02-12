@@ -33,7 +33,9 @@ router.post('/work-items', async (req, res) => {
     const { orgUrl, token, project, wiql } = req.body;
     const syncClient = new AzureDevOpsClient(orgUrl, token);
     
-    const query = wiql || `SELECT [System.Id], [System.Title], [System.State] FROM WorkItems WHERE [System.TeamProject] = '${project}'`;
+    // Sanitize project name to prevent WIQL injection
+    const sanitizedProject = project.replace(/'/g, "''");
+    const query = wiql || `SELECT [System.Id], [System.Title], [System.State] FROM WorkItems WHERE [System.TeamProject] = '${sanitizedProject}'`;
     const workItems = await syncClient.getWorkItems(project, query);
     
     res.json({ success: true, workItems });
@@ -78,7 +80,9 @@ router.post('/sync', async (req, res) => {
       }
     } else {
       // Sync all work items from source project
-      const wiql = `SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '${sourceProject}'`;
+      // Sanitize project name to prevent WIQL injection
+      const sanitizedProject = sourceProject.replace(/'/g, "''");
+      const wiql = `SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '${sanitizedProject}'`;
       const sourceWorkItems = await syncClient.getWorkItems(sourceProject, wiql);
       
       for (const workItem of sourceWorkItems) {
