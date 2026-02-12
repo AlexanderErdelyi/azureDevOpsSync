@@ -1,0 +1,13 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schema/mcp-settings.json",
+  "mcpServers": {
+    "azure-devops-sync": {
+      "command": "node",
+      "args": ["./mcp/server.js"],
+      "env": {
+        "AZURE_DEVOPS_ORG_URL": "https://dev.azure.com/your-organization",
+        "AZURE_DEVOPS_PAT": "your-personal-access-token"
+      }
+    }
+  }
+}
