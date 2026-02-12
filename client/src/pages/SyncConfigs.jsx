@@ -324,7 +324,77 @@ const SyncConfigs = () => {
       const response = await syncConfigApi.getSyncConfig(config.id);
       const fullConfig = response.data.sync_config;
       
-      // Transform config data to wizard format
+      setEditingConfigId(config.id);
+      setCurrentStep(1);
+      
+      // Load metadata for source and target connectors BEFORE showing wizard
+      if (fullConfig.source_connector_id) {
+        const sourceTypesRes = await metadataApi.getWorkItemTypes(fullConfig.source_connector_id, true);
+        const sourceTypes = sourceTypesRes.data.work_item_types || [];
+        const sourceTypeMap = {};
+        sourceTypes.forEach(t => { sourceTypeMap[t.type_name] = t; });
+        
+        // Load fields and statuses for all source types in type_mappings
+        const sourceFieldsMap = {};
+        const sourceStatusesMap = {};
+        for (const tm of fullConfig.type_mappings) {
+          if (tm.source_type && sourceTypeMap[tm.source_type]) {
+            try {
+              const [fieldsRes, statusesRes] = await Promise.all([
+                metadataApi.getWorkItemFields(fullConfig.source_connector_id, sourceTypeMap[tm.source_type].id),
+                metadataApi.getStatuses(fullConfig.source_connector_id, sourceTypeMap[tm.source_type].id)
+              ]);
+              
+              sourceFieldsMap[tm.source_type] = (fieldsRes.data.fields || []).map(f => f.field_name);
+              sourceStatusesMap[tm.source_type] = (statusesRes.data.statuses || []).map(s => s.status_name);
+            } catch (err) {
+              console.error(`Error loading metadata for source type ${tm.source_type}:`, err);
+            }
+          }
+        }
+        
+        setSourceMetadata({ 
+          types: Object.keys(sourceTypeMap), 
+          typeMap: sourceTypeMap, 
+          fields: sourceFieldsMap, 
+          statuses: sourceStatusesMap 
+        });
+      }
+      
+      if (fullConfig.target_connector_id) {
+        const targetTypesRes = await metadataApi.getWorkItemTypes(fullConfig.target_connector_id, true);
+        const targetTypes = targetTypesRes.data.work_item_types || [];
+        const targetTypeMap = {};
+        targetTypes.forEach(t => { targetTypeMap[t.type_name] = t; });
+        
+        // Load fields and statuses for all target types in type_mappings
+        const targetFieldsMap = {};
+        const targetStatusesMap = {};
+        for (const tm of fullConfig.type_mappings) {
+          if (tm.target_type && targetTypeMap[tm.target_type]) {
+            try {
+              const [fieldsRes, statusesRes] = await Promise.all([
+                metadataApi.getWorkItemFields(fullConfig.target_connector_id, targetTypeMap[tm.target_type].id),
+                metadataApi.getStatuses(fullConfig.target_connector_id, targetTypeMap[tm.target_type].id)
+              ]);
+              
+              targetFieldsMap[tm.target_type] = (fieldsRes.data.fields || []).map(f => f.field_name);
+              targetStatusesMap[tm.target_type] = (statusesRes.data.statuses || []).map(s => s.status_name);
+            } catch (err) {
+              console.error(`Error loading metadata for target type ${tm.target_type}:`, err);
+            }
+          }
+        }
+        
+        setTargetMetadata({ 
+          types: Object.keys(targetTypeMap), 
+          typeMap: targetTypeMap, 
+          fields: targetFieldsMap, 
+          statuses: targetStatusesMap 
+        });
+      }
+      
+      // Transform config data to wizard format AFTER metadata is loaded
       setWizardData({
         name: fullConfig.name || '',
         source_connector_id: fullConfig.source_connector_id || '',
@@ -337,20 +407,8 @@ const SyncConfigs = () => {
         is_active: fullConfig.is_active !== undefined ? fullConfig.is_active : true
       });
       
-      setEditingConfigId(config.id);
-      setCurrentStep(1);
+      // Show wizard LAST, after everything is loaded
       setShowWizard(true);
-      
-      // Load metadata for source and target connectors
-      if (fullConfig.source_connector_id) {
-        const sourceTypesRes = await metadataApi.getWorkItemTypes(fullConfig.source_connector_id, true);
-        setSourceMetadata({ types: sourceTypesRes.data.types || [] });
-      }
-      
-      if (fullConfig.target_connector_id) {
-        const targetTypesRes = await metadataApi.getWorkItemTypes(fullConfig.target_connector_id, true);
-        setTargetMetadata({ types: targetTypesRes.data.types || [] });
-      }
     } catch (error) {
       console.error('Error loading config for edit:', error);
       alert('Error loading configuration: ' + (error.response?.data?.error || error.message));
@@ -418,7 +476,17 @@ const SyncConfigs = () => {
           {/* Progress Steps */}
           <div className="wizard-steps">
             {STEPS.map((step, index) => (
-              <div key={step.id} className={`wizard-step ${currentStep >= step.id ? 'active' : ''} ${currentStep === step.id ? 'current' : ''}`}>
+              <div 
+                key={step.id} 
+                className={`wizard-step ${currentStep >= step.id ? 'active' : ''} ${currentStep === step.id ? 'current' : ''}`}
+                onClick={() => {
+                  // Allow clicking to navigate to previous steps or current step when editing
+                  if (editingConfigId || step.id <= currentStep) {
+                    setCurrentStep(step.id);
+                  }
+                }}
+                style={{ cursor: (editingConfigId || step.id <= currentStep) ? 'pointer' : 'default' }}
+              >
                 <div className="step-number">
                   {currentStep > step.id ? <Check size={16} /> : step.id}
                 </div>
