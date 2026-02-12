@@ -11,16 +11,42 @@ const Scheduler = () => {
 
   useEffect(() => {
     loadData();
-    // Auto-refresh every 30 seconds only when tab is visible
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
+    
+    // Auto-refresh every 30 seconds, pausing when tab is hidden
+    let intervalId = null;
+    
+    const startInterval = () => {
+      if (intervalId) return;
+      intervalId = setInterval(() => {
         loadData().catch(err => {
           console.error('Auto-refresh failed:', err);
-          // Continue refreshing even on errors, but log them
         });
+      }, 30000);
+    };
+    
+    const stopInterval = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
       }
-    }, 30000);
-    return () => clearInterval(interval);
+    };
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        startInterval();
+      } else {
+        stopInterval();
+      }
+    };
+    
+    // Start interval and listen for visibility changes
+    startInterval();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      stopInterval();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const loadData = async () => {

@@ -787,26 +787,32 @@ const Monitoring = () => {
               >
                 Cancel
               </button>
-              <button
-                onClick={() => executeFromPreview()}
-                disabled={!previewData.items || previewData.items.length === 0 || previewData.items.every(item => item.action === 'error')}
-                style={{
-                  padding: '0.625rem 1.25rem',
-                  border: 'none',
-                  borderRadius: '6px',
-                  background: (!previewData.items || previewData.items.length === 0 || previewData.items.every(item => item.action === 'error')) ? '#d1d5db' : '#3b82f6',
-                  color: 'white',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  cursor: (!previewData.items || previewData.items.length === 0 || previewData.items.every(item => item.action === 'error')) ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}
-              >
-                <Play size={16} />
-                Execute Sync
-              </button>
+              {(() => {
+                const validItems = previewData.items?.filter(item => item.action !== 'error') || [];
+                const hasNoValidItems = validItems.length === 0;
+                return (
+                  <button
+                    onClick={() => executeFromPreview()}
+                    disabled={hasNoValidItems}
+                    style={{
+                      padding: '0.625rem 1.25rem',
+                      border: 'none',
+                      borderRadius: '6px',
+                      background: hasNoValidItems ? '#d1d5db' : '#3b82f6',
+                      color: 'white',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      cursor: hasNoValidItems ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}
+                  >
+                    <Play size={16} />
+                    Execute Sync
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>
