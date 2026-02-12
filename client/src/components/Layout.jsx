@@ -37,10 +37,7 @@ const Layout = ({ children }) => {
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
-          <h1 className="sidebar-title">
-            {sidebarOpen && 'Sync Platform'}
-            {!sidebarOpen && 'SP'}
-          </h1>
+          {sidebarOpen && <h1 className="sidebar-title">Sync Platform</h1>}
           <button 
             className="sidebar-toggle"
             onClick={() => setSidebarOpen(!sidebarOpen)}
