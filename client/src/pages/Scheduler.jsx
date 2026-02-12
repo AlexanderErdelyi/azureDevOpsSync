@@ -69,7 +69,6 @@ const Scheduler = () => {
       // Check if it's a rate limit error
       if (error.response?.status === 429) {
         setRateLimited(true);
-        alert('Rate limit exceeded. Please wait a moment before refreshing again.');
       }
     } finally {
       setLoading(false);
@@ -80,7 +79,7 @@ const Scheduler = () => {
     // Debounce: prevent refresh if less than 2 seconds since last refresh
     const timeSinceLastRefresh = Date.now() - lastRefresh;
     if (timeSinceLastRefresh < 2000) {
-      alert('Please wait a moment between refreshes.');
+      // Visual feedback - button is temporarily disabled in UI
       return;
     }
     loadData();
@@ -162,7 +161,7 @@ const Scheduler = () => {
           <h1>Scheduler</h1>
           <p className="subtitle">Manage scheduled sync jobs and monitor health</p>
         </div>
-        <button className="btn-refresh" onClick={handleManualRefresh} disabled={rateLimited}>
+        <button className="btn-refresh" onClick={handleManualRefresh} disabled={rateLimited || (Date.now() - lastRefresh < 2000)}>
           <RefreshCw size={16} />
           Refresh
         </button>

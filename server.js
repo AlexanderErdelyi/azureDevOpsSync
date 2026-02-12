@@ -23,8 +23,10 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   // Skip rate limiting for certain endpoints that need higher limits
   skip: (req) => {
-    // Allow unlimited requests to health/status endpoints for monitoring
-    return req.path.includes('/status') || req.path.includes('/health');
+    // Allow unlimited requests to scheduler/job queue status endpoints for monitoring
+    return req.path === '/api/scheduler/status' || 
+           req.path === '/api/jobs/queue' ||
+           req.path === '/api/jobs/status';
   }
 });
 

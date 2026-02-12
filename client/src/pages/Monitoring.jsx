@@ -52,7 +52,6 @@ const Monitoring = () => {
       console.error('Error loading executions:', error);
       if (error.response?.status === 429) {
         setRateLimited(true);
-        alert('Rate limit exceeded. Please wait a moment before refreshing again.');
       }
       setExecutions([]);
     }
@@ -62,7 +61,7 @@ const Monitoring = () => {
     // Debounce: prevent refresh if less than 2 seconds since last refresh
     const timeSinceLastRefresh = Date.now() - lastRefresh;
     if (timeSinceLastRefresh < 2000) {
-      alert('Please wait a moment between refreshes.');
+      // Visual feedback - button is temporarily disabled in UI
       return;
     }
     loadExecutions(selectedConfig);
@@ -215,7 +214,7 @@ const Monitoring = () => {
           <p className="subtitle">Real-time sync monitoring and execution logs</p>
         </div>
         <div className="header-actions">
-          <button className="btn-secondary" onClick={handleManualRefresh} disabled={rateLimited}>
+          <button className="btn-secondary" onClick={handleManualRefresh} disabled={rateLimited || (Date.now() - lastRefresh < 2000)}>
             <RefreshCw size={16} />
             Refresh
           </button>
