@@ -162,6 +162,23 @@
   font-size: 0.8125rem;
 }
 
+.btn-link {
+  background: transparent;
+  color: var(--primary);
+  border: none;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.btn-link:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+
 .btn-icon-action {
   padding: 0.5rem;
   background: transparent;
