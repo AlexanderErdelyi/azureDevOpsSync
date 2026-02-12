@@ -43,16 +43,10 @@ async function runMigrations() {
     const filePath = path.join(migrationsDir, file);
     const sql = fs.readFileSync(filePath, 'utf8');
     
-    // Split by semicolons and execute each statement
-    const statements = sql
-      .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0 && !s.startsWith('--'));
-    
     try {
-      for (const statement of statements) {
-        await db.raw(statement);
-      }
+      // Execute the entire SQL file as-is
+      // SQLite can handle multiple statements in one call
+      await db.raw(sql);
       
       // Record migration as applied
       await db('migrations').insert({ name: file });
