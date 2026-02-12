@@ -11,8 +11,15 @@ const Scheduler = () => {
 
   useEffect(() => {
     loadData();
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(loadData, 30000);
+    // Auto-refresh every 30 seconds only when tab is visible
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadData().catch(err => {
+          console.error('Auto-refresh failed:', err);
+          // Continue refreshing even on errors, but log them
+        });
+      }
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 

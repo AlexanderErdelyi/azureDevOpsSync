@@ -103,7 +103,9 @@ const Monitoring = () => {
     
     setExecuting(true);
     try {
-      const workItemIds = selectedItems || previewData?.items?.map(item => item.sourceId) || null;
+      // Filter out error items from preview data
+      const validItems = previewData?.items?.filter(item => item.action !== 'error') || [];
+      const workItemIds = selectedItems || (validItems.length > 0 ? validItems.map(item => item.sourceId) : null);
       const result = await executeApi.executeSync(selectedConfig, workItemIds);
       alert(`Sync executed successfully!\n\nTotal: ${result.data.results.total}\nCreated: ${result.data.results.created}\nUpdated: ${result.data.results.updated}\nErrors: ${result.data.results.errors}`);
       setTimeout(() => loadExecutions(selectedConfig), 1000);
@@ -787,16 +789,16 @@ const Monitoring = () => {
               </button>
               <button
                 onClick={() => executeFromPreview()}
-                disabled={!previewData.items || previewData.items.length === 0 || previewData.summary?.errors > 0}
+                disabled={!previewData.items || previewData.items.length === 0 || previewData.items.every(item => item.action === 'error')}
                 style={{
                   padding: '0.625rem 1.25rem',
                   border: 'none',
                   borderRadius: '6px',
-                  background: (!previewData.items || previewData.items.length === 0 || previewData.summary?.errors > 0) ? '#d1d5db' : '#3b82f6',
+                  background: (!previewData.items || previewData.items.length === 0 || previewData.items.every(item => item.action === 'error')) ? '#d1d5db' : '#3b82f6',
                   color: 'white',
                   fontSize: '0.875rem',
                   fontWeight: '500',
-                  cursor: (!previewData.items || previewData.items.length === 0 || previewData.summary?.errors > 0) ? 'not-allowed' : 'pointer',
+                  cursor: (!previewData.items || previewData.items.length === 0 || previewData.items.every(item => item.action === 'error')) ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem'
