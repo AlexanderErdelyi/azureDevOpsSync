@@ -105,4 +105,13 @@ export const conflictsApi = {
   getStats: (configId) => api.get(`/conflicts/stats/${configId}`)
 };
 
+export const settingsApi = {
+  getSettings: (prefix = null) => api.get('/settings', { params: prefix ? { prefix } : {} }),
+  getSetting: (key) => api.get(`/settings/${key}`),
+  updateSettings: (settings) => api.put('/settings', { settings }),
+  updateSetting: (key, value, valueType = 'string', description = '') => 
+    api.put(`/settings/${key}`, { value, value_type: valueType, description }),
+  testSmtp: (toEmail) => api.post('/settings/test-smtp', { to_email: toEmail })
+};
+
 export default api;

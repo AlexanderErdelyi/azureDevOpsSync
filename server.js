@@ -40,6 +40,7 @@ const executeRoutes = require('./routes/execute');
 const webhookRoutes = require('./routes/webhooks');
 const schedulerRoutes = require('./routes/scheduler');
 const conflictsRoutes = require('./routes/conflicts');
+const settingsRoutes = require('./routes/settings');
 
 app.use('/api/connectors', connectorsRoutes);
 app.use('/api/metadata', metadataRoutes);
@@ -47,6 +48,7 @@ app.use('/api/sync-configs', syncConfigsRoutes);
 app.use('/api/execute', executeRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/conflicts', conflictsRoutes);
+app.use('/api/settings', settingsRoutes);
 app.use('/api', schedulerRoutes);
 
 // Legacy Azure DevOps sync routes (deprecated, maintained for backward compatibility)

@@ -11,7 +11,8 @@ import {
   Bell,
   AlertTriangle,
   Menu,
-  X
+  X,
+  Cog
 } from 'lucide-react';
 import './Layout.css';
 
@@ -27,7 +28,8 @@ const Layout = ({ children }) => {
     { path: '/scheduler', icon: Clock, label: 'Scheduler' },
     { path: '/webhooks', icon: Webhook, label: 'Webhooks' },
     { path: '/notifications', icon: Bell, label: 'Notifications' },
-    { path: '/conflicts', icon: AlertTriangle, label: 'Conflicts' }
+    { path: '/conflicts', icon: AlertTriangle, label: 'Conflicts' },
+    { path: '/settings', icon: Cog, label: 'Settings' }
   ];
 
   return (
