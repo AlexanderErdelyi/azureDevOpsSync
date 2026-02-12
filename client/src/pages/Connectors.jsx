@@ -42,10 +42,25 @@ const Connectors = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Transform form data to match backend API format
+      const payload = {
+        name: form.name,
+        connector_type: form.type,
+        base_url: form.base_url,
+        endpoint: form.endpoint || null,
+        auth_type: form.auth_type,
+        credentials: {
+          token: form.credentials.pat || form.credentials.api_key || undefined,
+          username: form.credentials.username || undefined,
+          password: form.credentials.password || undefined
+        },
+        metadata: {}
+      };
+
       if (editingId) {
-        await connectorApi.updateConnector(editingId, form);
+        await connectorApi.updateConnector(editingId, payload);
       } else {
-        await connectorApi.createConnector(form);
+        await connectorApi.createConnector(payload);
       }
       await loadConnectors();
       resetForm();
@@ -88,6 +103,7 @@ const Connectors = () => {
       name: connector.name,
       type: connector.type,
       base_url: connector.base_url,
+      endpoint: connector.endpoint || '',
       auth_type: connector.auth_type,
       credentials: connector.credentials || { pat: '', api_key: '', username: '', password: '' },
       is_active: connector.is_active
@@ -102,6 +118,7 @@ const Connectors = () => {
       name: '',
       type: 'azuredevops',
       base_url: '',
+      endpoint: '',
       auth_type: 'pat',
       credentials: { pat: '', api_key: '', username: '', password: '' },
       is_active: true
@@ -183,6 +200,20 @@ const Connectors = () => {
                 placeholder={form.type === 'azuredevops' ? 'https://dev.azure.com/organization' : 'https://sdp.example.com'}
                 required
               />
+            </div>
+
+            <div className="form-group">
+              <label>{form.type === 'azuredevops' ? 'Project Name' : 'Endpoint'} {form.type === 'azuredevops' && '*'}</label>
+              <input
+                type="text"
+                value={form.endpoint}
+                onChange={e => setForm({ ...form, endpoint: e.target.value })}
+                placeholder={form.type === 'azuredevops' ? 'MyProject' : 'Optional endpoint'}
+                required={form.type === 'azuredevops'}
+              />
+              {form.type === 'azuredevops' && (
+                <small className="field-hint">The Azure DevOps project name to connect to</small>
+              )}
             </div>
 
             <div className="form-group">

@@ -22,7 +22,7 @@ export const connectorApi = {
   createConnector: (data) => api.post('/connectors', data),
   updateConnector: (id, data) => api.put(`/connectors/${id}`, data),
   deleteConnector: (id) => api.delete(`/connectors/${id}`),
-  testConnection: (id) => api.get(`/connectors/${id}/test`)
+  testConnection: (id) => api.post(`/connectors/${id}/test`)
 };
 
 export const metadataApi = {
