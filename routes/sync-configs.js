@@ -117,9 +117,7 @@ router.post('/', async (req, res) => {
       description,
       source_connector_id,
       target_connector_id,
-      source_work_item_type,
-      target_work_item_type,
-      field_mappings = [],
+      type_mappings = [],
       direction = 'one-way',
       trigger_type = 'manual',
       schedule_cron = null,
@@ -176,64 +174,103 @@ router.post('/', async (req, res) => {
         updated_at: new Date()
       });
       
-      // If work item types and field mappings provided, create them
-      if (source_work_item_type && target_work_item_type && field_mappings.length > 0) {
+      // Process type mappings
+      for (const typeMapping of type_mappings) {
+        if (!typeMapping.source_type || !typeMapping.target_type) continue;
+        
         // Find work item type IDs by name
         const sourceType = await trx('connector_work_item_types')
           .where({
             connector_id: source_connector_id,
-            type_name: source_work_item_type
+            type_name: typeMapping.source_type
           })
           .first();
           
         const targetType = await trx('connector_work_item_types')
           .where({
             connector_id: target_connector_id,
-            type_name: target_work_item_type
+            type_name: typeMapping.target_type
           })
           .first();
           
-        if (sourceType && targetType) {
-          // Create type mapping
-          const [typeMappingId] = await trx('sync_type_mappings').insert({
-            sync_config_id: id,
-            source_type_id: sourceType.id,
-            target_type_id: targetType.id,
-            is_active: true,
-            created_at: new Date()
-          });
+        if (!sourceType || !targetType) {
+          console.warn(`Type mapping skipped: ${typeMapping.source_type} -> ${typeMapping.target_type} (type not found)`);
+          continue;
+        }
+        
+        // Create type mapping
+        const [typeMappingId] = await trx('sync_type_mappings').insert({
+          sync_config_id: id,
+          source_type_id: sourceType.id,
+          target_type_id: targetType.id,
+          is_active: true,
+          created_at: new Date()
+        });
+        
+        // Create field mappings
+        for (const fieldMapping of (typeMapping.field_mappings || [])) {
+          if (!fieldMapping.source_field || !fieldMapping.target_field) continue;
           
-          // Create field mappings
-          for (const mapping of field_mappings) {
-            if (!mapping.source_field || !mapping.target_field) continue;
+          // Find field IDs by name or reference
+          const sourceField = await trx('connector_fields')
+            .where({ work_item_type_id: sourceType.id })
+            .andWhere(function() {
+              this.where('field_name', fieldMapping.source_field)
+                  .orWhere('field_reference', fieldMapping.source_field);
+            })
+            .first();
             
-            // Find field IDs by name or reference
-            const sourceField = await trx('connector_fields')
-              .where({ work_item_type_id: sourceType.id })
-              .andWhere(function() {
-                this.where('field_name', mapping.source_field)
-                    .orWhere('field_reference', mapping.source_field);
-              })
-              .first();
-              
-            const targetField = await trx('connector_fields')
-              .where({ work_item_type_id: targetType.id })
-              .andWhere(function() {
-                this.where('field_name', mapping.target_field)
-                    .orWhere('field_reference', mapping.target_field);
-              })
-              .first();
-              
-            if (sourceField && targetField) {
-              await trx('sync_field_mappings').insert({
-                type_mapping_id: typeMappingId,
-                source_field_id: sourceField.id,
-                target_field_id: targetField.id,
-                transformation_function: mapping.transformation || null,
-                is_active: true,
-                created_at: new Date()
-              });
-            }
+          const targetField = await trx('connector_fields')
+            .where({ work_item_type_id: targetType.id })
+            .andWhere(function() {
+              this.where('field_name', fieldMapping.target_field)
+                  .orWhere('field_reference', fieldMapping.target_field);
+            })
+            .first();
+            
+          if (sourceField && targetField) {
+            await trx('sync_field_mappings').insert({
+              type_mapping_id: typeMappingId,
+              source_field_id: sourceField.id,
+              target_field_id: targetField.id,
+              transformation_function: fieldMapping.transformation || null,
+              is_active: true,
+              created_at: new Date()
+            });
+          } else {
+            console.warn(`Field mapping skipped: ${fieldMapping.source_field} -> ${fieldMapping.target_field} (field not found)`);
+          }
+        }
+        
+        // Create status mappings
+        for (const statusMapping of (typeMapping.status_mappings || [])) {
+          if (!statusMapping.source_status || !statusMapping.target_status) continue;
+          
+          // Find status IDs by name
+          const sourceStatus = await trx('connector_statuses')
+            .where({
+              work_item_type_id: sourceType.id,
+              status_name: statusMapping.source_status
+            })
+            .first();
+            
+          const targetStatus = await trx('connector_statuses')
+            .where({
+              work_item_type_id: targetType.id,
+              status_name: statusMapping.target_status
+            })
+            .first();
+            
+          if (sourceStatus && targetStatus) {
+            await trx('sync_status_mappings').insert({
+              type_mapping_id: typeMappingId,
+              source_status_id: sourceStatus.id,
+              target_status_id: targetStatus.id,
+              is_active: true,
+              created_at: new Date()
+            });
+          } else {
+            console.warn(`Status mapping skipped: ${statusMapping.source_status} -> ${statusMapping.target_status} (status not found)`);
           }
         }
       }

@@ -462,3 +462,108 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Type Mappings List */
+.type-mappings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.type-mapping-card {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.type-mapping-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.type-mapping-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+/* Type Mappings Config */
+.type-mappings-config {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.type-mapping-config-card {
+  background: var(--gray-50);
+  border: 2px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.type-mapping-title {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--primary);
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.mappings-section {
+  margin-bottom: 1.5rem;
+}
+
+.mappings-section:last-child {
+  margin-bottom: 0;
+}
+
+.mappings-section h4 {
+  margin: 0 0 1rem 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--gray-700);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Status Mappings */
+.status-mappings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.status-mapping-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto;
+  gap: 1rem;
+  align-items: end;
+  background: white;
+  padding: 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--gray-200);
+}
+
+.status-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.status-select label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.status-select select {
+  padding: 0.5rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 0.875rem;
+}

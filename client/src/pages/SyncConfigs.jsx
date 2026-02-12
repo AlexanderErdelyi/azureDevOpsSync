@@ -45,15 +45,15 @@ const SyncConfigs = () => {
     name: '',
     source_connector_id: '',
     target_connector_id: '',
-    source_work_item_type: '',
-    target_work_item_type: '',
-    field_mappings: [],
+    type_mappings: [],
     filter_conditions: [],
     trigger_type: 'manual',
     schedule_cron: '',
     sync_direction: 'one_way',
     is_active: true
   });
+  
+  const [currentTypeMapping, setCurrentTypeMapping] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -171,13 +171,12 @@ const SyncConfigs = () => {
     setSourceMetadata(null);
     setTargetMetadata(null);
     setEditingConfigId(null);
+    setCurrentTypeMapping(null);
     setWizardData({
       name: '',
       source_connector_id: '',
       target_connector_id: '',
-      source_work_item_type: '',
-      target_work_item_type: '',
-      field_mappings: [],
+      type_mappings: [],
       filter_conditions: [],
       trigger_type: 'manual',
       schedule_cron: '',
@@ -186,31 +185,115 @@ const SyncConfigs = () => {
     });
   };
 
-  const addFieldMapping = () => {
+  const addTypeMapping = () => {
     setWizardData(prev => ({
       ...prev,
-      field_mappings: [...prev.field_mappings, {
-        source_field: '',
-        target_field: '',
-        transformation: 'none',
-        is_required: false
+      type_mappings: [...prev.type_mappings, {
+        source_type: '',
+        target_type: '',
+        field_mappings: [],
+        status_mappings: []
       }]
     }));
   };
 
-  const updateFieldMapping = (index, field, value) => {
+  const updateTypeMapping = (index, field, value) => {
     setWizardData(prev => ({
       ...prev,
-      field_mappings: prev.field_mappings.map((m, i) => 
-        i === index ? { ...m, [field]: value } : m
+      type_mappings: prev.type_mappings.map((tm, i) => 
+        i === index ? { ...tm, [field]: value } : tm
       )
     }));
   };
 
-  const removeFieldMapping = (index) => {
+  const removeTypeMapping = (index) => {
     setWizardData(prev => ({
       ...prev,
-      field_mappings: prev.field_mappings.filter((_, i) => i !== index)
+      type_mappings: prev.type_mappings.filter((_, i) => i !== index)
+    }));
+  };
+
+  const addFieldMapping = (typeMappingIndex) => {
+    setWizardData(prev => ({
+      ...prev,
+      type_mappings: prev.type_mappings.map((tm, i) => 
+        i === typeMappingIndex ? {
+          ...tm,
+          field_mappings: [...tm.field_mappings, {
+            source_field: '',
+            target_field: '',
+            transformation: 'none',
+            is_required: false
+          }]
+        } : tm
+      )
+    }));
+  };
+
+  const updateFieldMapping = (typeMappingIndex, fieldIndex, field, value) => {
+    setWizardData(prev => ({
+      ...prev,
+      type_mappings: prev.type_mappings.map((tm, i) => 
+        i === typeMappingIndex ? {
+          ...tm,
+          field_mappings: tm.field_mappings.map((fm, j) => 
+            j === fieldIndex ? { ...fm, [field]: value } : fm
+          )
+        } : tm
+      )
+    }));
+  };
+
+  const removeFieldMapping = (typeMappingIndex, fieldIndex) => {
+    setWizardData(prev => ({
+      ...prev,
+      type_mappings: prev.type_mappings.map((tm, i) => 
+        i === typeMappingIndex ? {
+          ...tm,
+          field_mappings: tm.field_mappings.filter((_, j) => j !== fieldIndex)
+        } : tm
+      )
+    }));
+  };
+
+  const addStatusMapping = (typeMappingIndex) => {
+    setWizardData(prev => ({
+      ...prev,
+      type_mappings: prev.type_mappings.map((tm, i) => 
+        i === typeMappingIndex ? {
+          ...tm,
+          status_mappings: [...tm.status_mappings, {
+            source_status: '',
+            target_status: ''
+          }]
+        } : tm
+      )
+    }));
+  };
+
+  const updateStatusMapping = (typeMappingIndex, statusIndex, field, value) => {
+    setWizardData(prev => ({
+      ...prev,
+      type_mappings: prev.type_mappings.map((tm, i) => 
+        i === typeMappingIndex ? {
+          ...tm,
+          status_mappings: tm.status_mappings.map((sm, j) => 
+            j === statusIndex ? { ...sm, [field]: value } : sm
+          )
+        } : tm
+      )
+    }));
+  };
+
+  const removeStatusMapping = (typeMappingIndex, statusIndex) => {
+    setWizardData(prev => ({
+      ...prev,
+      type_mappings: prev.type_mappings.map((tm, i) => 
+        i === typeMappingIndex ? {
+          ...tm,
+          status_mappings: tm.status_mappings.filter((_, j) => j !== statusIndex)
+        } : tm
+      )
     }));
   };
 
@@ -325,107 +408,205 @@ const SyncConfigs = () => {
             {currentStep === 2 && (
               <div className="wizard-step-content">
                 <h2>Configure Work Item Types</h2>
-                <p className="step-subtitle">Select which work item types to synchronize</p>
+                <p className="step-subtitle">Add one or more work item type mappings</p>
 
-                <div className="work-item-selection">
-                  <div className="work-item-box">
-                    <label>Source Work Item Type *</label>
-                    <select
-                      value={wizardData.source_work_item_type}
-                      onChange={e => setWizardData({ ...wizardData, source_work_item_type: e.target.value })}
-                    >
-                      <option value="">Select type...</option>
-                      {(sourceMetadata?.types || []).map(t => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="type-mappings-list">
+                  {wizardData.type_mappings.map((typeMapping, index) => (
+                    <div key={index} className="type-mapping-card">
+                      <div className="type-mapping-header">
+                        <h3>Type Mapping {index + 1}</h3>
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm"
+                          onClick={() => removeTypeMapping(index)}
+                        >
+                          <X size={16} /> Remove
+                        </button>
+                      </div>
+                      
+                      <div className="work-item-selection">
+                        <div className="work-item-box">
+                          <label>Source Work Item Type *</label>
+                          <select
+                            value={typeMapping.source_type}
+                            onChange={e => updateTypeMapping(index, 'source_type', e.target.value)}
+                          >
+                            <option value="">Select type...</option>
+                            {(sourceMetadata?.types || []).map(t => (
+                              <option key={t} value={t}>{t}</option>
+                            ))}
+                          </select>
+                        </div>
 
-                  <div className="connector-arrow">
-                    <ArrowRight size={32} />
-                  </div>
+                        <div className="connector-arrow">
+                          <ArrowRight size={24} />
+                        </div>
 
-                  <div className="work-item-box">
-                    <label>Target Work Item Type *</label>
-                    <select
-                      value={wizardData.target_work_item_type}
-                      onChange={e => setWizardData({ ...wizardData, target_work_item_type: e.target.value })}
-                    >
-                      <option value="">Select type...</option>
-                      {(targetMetadata?.types || []).map(t => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
+                        <div className="work-item-box">
+                          <label>Target Work Item Type *</label>
+                          <select
+                            value={typeMapping.target_type}
+                            onChange={e => updateTypeMapping(index, 'target_type', e.target.value)}
+                          >
+                            <option value="">Select type...</option>
+                            {(targetMetadata?.types || []).map(t => (
+                              <option key={t} value={t}>{t}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={addTypeMapping}
+                  >
+                    <Plus size={16} /> Add Type Mapping
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* Step 3: Field Mappings */}
+            {/* Step 3: Field & Status Mappings */}
             {currentStep === 3 && (
               <div className="wizard-step-content">
-                <h2>Field Mappings</h2>
-                <p className="step-subtitle">Map fields from source to target</p>
+                <h2>Field & Status Mappings</h2>
+                <p className="step-subtitle">Map fields and statuses for each work item type</p>
 
-                <div className="field-mappings">
-                  {wizardData.field_mappings.map((mapping, index) => (
-                    <div key={index} className="field-mapping-row">
-                      <div className="field-select">
-                        <label>Source Field</label>
-                        <select
-                          value={mapping.source_field}
-                          onChange={e => updateFieldMapping(index, 'source_field', e.target.value)}
-                        >
-                          <option value="">Select field...</option>
-                          {(sourceMetadata?.fields[wizardData.source_work_item_type] || []).map(f => (
-                            <option key={f} value={f}>{f}</option>
+                <div className="type-mappings-config">
+                  {wizardData.type_mappings.map((typeMapping, tmIndex) => (
+                    <div key={tmIndex} className="type-mapping-config-card">
+                      <h3 className="type-mapping-title">
+                        {typeMapping.source_type || 'Unselected'} → {typeMapping.target_type || 'Unselected'}
+                      </h3>
+
+                      {/* Field Mappings Section */}
+                      <div className="mappings-section">
+                        <h4>Field Mappings</h4>
+                        <div className="field-mappings">
+                          {typeMapping.field_mappings.map((mapping, fmIndex) => (
+                            <div key={fmIndex} className="field-mapping-row">
+                              <div className="field-select">
+                                <label>Source Field</label>
+                                <select
+                                  value={mapping.source_field}
+                                  onChange={e => updateFieldMapping(tmIndex, fmIndex, 'source_field', e.target.value)}
+                                >
+                                  <option value="">Select field...</option>
+                                  {(sourceMetadata?.fields[typeMapping.source_type] || []).map(f => (
+                                    <option key={f} value={f}>{f}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="mapping-arrow">
+                                <ArrowRight size={20} />
+                              </div>
+
+                              <div className="field-select">
+                                <label>Target Field</label>
+                                <select
+                                  value={mapping.target_field}
+                                  onChange={e => updateFieldMapping(tmIndex, fmIndex, 'target_field', e.target.value)}
+                                >
+                                  <option value="">Select field...</option>
+                                  {(targetMetadata?.fields[typeMapping.target_type] || []).map(f => (
+                                    <option key={f} value={f}>{f}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="transformation-select">
+                                <label>Transformation</label>
+                                <select
+                                  value={mapping.transformation}
+                                  onChange={e => updateFieldMapping(tmIndex, fmIndex, 'transformation', e.target.value)}
+                                >
+                                  {TRANSFORMATION_FUNCTIONS.map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <button
+                                className="btn-icon-danger"
+                                onClick={() => removeFieldMapping(tmIndex, fmIndex)}
+                                title="Remove mapping"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           ))}
-                        </select>
+
+                          <button 
+                            className="btn-secondary" 
+                            onClick={() => addFieldMapping(tmIndex)}
+                          >
+                            <Plus size={16} />
+                            Add Field Mapping
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="mapping-arrow">
-                        <ArrowRight size={20} />
-                      </div>
+                      {/* Status Mappings Section */}
+                      <div className="mappings-section">
+                        <h4>Status Mappings</h4>
+                        <div className="status-mappings">
+                          {typeMapping.status_mappings.map((mapping, smIndex) => (
+                            <div key={smIndex} className="status-mapping-row">
+                              <div className="status-select">
+                                <label>Source Status</label>
+                                <select
+                                  value={mapping.source_status}
+                                  onChange={e => updateStatusMapping(tmIndex, smIndex, 'source_status', e.target.value)}
+                                >
+                                  <option value="">Select status...</option>
+                                  {(sourceMetadata?.statuses[typeMapping.source_type] || []).map(s => (
+                                    <option key={s} value={s}>{s}</option>
+                                  ))}
+                                </select>
+                              </div>
 
-                      <div className="field-select">
-                        <label>Target Field</label>
-                        <select
-                          value={mapping.target_field}
-                          onChange={e => updateFieldMapping(index, 'target_field', e.target.value)}
-                        >
-                          <option value="">Select field...</option>
-                          {(targetMetadata?.fields[wizardData.target_work_item_type] || []).map(f => (
-                            <option key={f} value={f}>{f}</option>
+                              <div className="mapping-arrow">
+                                <ArrowRight size={20} />
+                              </div>
+
+                              <div className="status-select">
+                                <label>Target Status</label>
+                                <select
+                                  value={mapping.target_status}
+                                  onChange={e => updateStatusMapping(tmIndex, smIndex, 'target_status', e.target.value)}
+                                >
+                                  <option value="">Select status...</option>
+                                  {(targetMetadata?.statuses[typeMapping.target_type] || []).map(s => (
+                                    <option key={s} value={s}>{s}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <button
+                                className="btn-icon-danger"
+                                onClick={() => removeStatusMapping(tmIndex, smIndex)}
+                                title="Remove mapping"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           ))}
-                        </select>
-                      </div>
 
-                      <div className="transformation-select">
-                        <label>Transformation</label>
-                        <select
-                          value={mapping.transformation}
-                          onChange={e => updateFieldMapping(index, 'transformation', e.target.value)}
-                        >
-                          {TRANSFORMATION_FUNCTIONS.map(t => (
-                            <option key={t} value={t}>{t}</option>
-                          ))}
-                        </select>
+                          <button 
+                            className="btn-secondary" 
+                            onClick={() => addStatusMapping(tmIndex)}
+                          >
+                            <Plus size={16} />
+                            Add Status Mapping
+                          </button>
+                        </div>
                       </div>
-
-                      <button
-                        className="btn-icon-danger"
-                        onClick={() => removeFieldMapping(index)}
-                        title="Remove mapping"
-                      >
-                        <Trash2 size={16} />
-                      </button>
                     </div>
                   ))}
-
-                  <button className="btn-secondary" onClick={addFieldMapping}>
-                    <Plus size={16} />
-                    Add Field Mapping
-                  </button>
                 </div>
               </div>
             )}
@@ -562,7 +743,8 @@ const SyncConfigs = () => {
                   onClick={handleNext}
                   disabled={
                     (currentStep === 1 && (!wizardData.name || !wizardData.source_connector_id || !wizardData.target_connector_id)) ||
-                    (currentStep === 2 && (!wizardData.source_work_item_type || !wizardData.target_work_item_type))
+                    (currentStep === 2 && wizardData.type_mappings.length === 0) ||
+                    (currentStep === 2 && wizardData.type_mappings.some(tm => !tm.source_type || !tm.target_type))
                   }
                 >
                   Next
