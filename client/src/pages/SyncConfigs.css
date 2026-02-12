@@ -568,20 +568,6 @@
   font-size: 0.875rem;
 }
 
-/* Animation */
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.spin {
-  animation: spin 1s linear infinite;
-}
-
 /* Button Icon Styles */
 .btn-icon-action.primary {
   color: var(--primary);

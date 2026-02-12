@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../database/db');
+const nodemailer = require('nodemailer');
 
 /**
  * GET /api/settings
@@ -286,7 +287,6 @@ router.post('/test-smtp', async (req, res) => {
     }
     
     // Create nodemailer transporter
-    const nodemailer = require('nodemailer');
     const transporter = nodemailer.createTransport({
       host: config.smtp_host,
       port: parseInt(config.smtp_port) || 587,

@@ -389,7 +389,7 @@ const Settings = () => {
               <input
                 type="number"
                 value={generalSettings.max_concurrent_syncs}
-                onChange={e => setGeneralSettings({ ...generalSettings, max_concurrent_syncs: parseInt(e.target.value) })}
+                onChange={e => setGeneralSettings({ ...generalSettings, max_concurrent_syncs: parseInt(e.target.value, 10) })}
                 min="1"
                 max="20"
                 className="form-control"
@@ -405,7 +405,7 @@ const Settings = () => {
               <input
                 type="number"
                 value={generalSettings.sync_batch_size}
-                onChange={e => setGeneralSettings({ ...generalSettings, sync_batch_size: parseInt(e.target.value) })}
+                onChange={e => setGeneralSettings({ ...generalSettings, sync_batch_size: parseInt(e.target.value, 10) })}
                 min="10"
                 max="1000"
                 className="form-control"
@@ -421,7 +421,7 @@ const Settings = () => {
               <input
                 type="number"
                 value={generalSettings.log_retention_days}
-                onChange={e => setGeneralSettings({ ...generalSettings, log_retention_days: parseInt(e.target.value) })}
+                onChange={e => setGeneralSettings({ ...generalSettings, log_retention_days: parseInt(e.target.value, 10) })}
                 min="7"
                 max="365"
                 className="form-control"
