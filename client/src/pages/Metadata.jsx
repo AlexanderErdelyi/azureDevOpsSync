@@ -275,7 +275,7 @@ const Metadata = () => {
                                 {type.description || '-'}
                               </td>
                               <td>
-                                {type.is_enabled ? (
+                                {type.enabled_for_sync ? (
                                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#10b981' }}>
                                     <CheckCircle size={16} /> Enabled
                                   </span>
@@ -287,11 +287,11 @@ const Metadata = () => {
                               </td>
                               <td>
                                 <button
-                                  onClick={() => toggleWorkItemType(type.id, type.is_enabled)}
+                                  onClick={() => toggleWorkItemType(type.id, type.enabled_for_sync)}
                                   className="btn btn-sm"
                                   style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                                 >
-                                  {type.is_enabled ? (
+                                  {type.enabled_for_sync ? (
                                     <>
                                       <EyeOff size={16} /> Disable
                                     </>

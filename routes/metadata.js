@@ -27,7 +27,7 @@ router.get('/work-item-types', async (req, res) => {
       .where({ connector_id });
     
     if (enabled_only === 'true') {
-      query = query.where({ is_enabled: 1 });
+      query = query.where({ enabled_for_sync: 1 });
     }
     
     const types = await query.orderBy('type_name');
@@ -334,7 +334,7 @@ router.put('/work-item-types/:id', async (req, res) => {
     
     await db('connector_work_item_types')
       .where({ id })
-      .update({ is_enabled: is_enabled ? 1 : 0 });
+      .update({ enabled_for_sync: is_enabled ? 1 : 0 });
     
     res.json({
       success: true,
