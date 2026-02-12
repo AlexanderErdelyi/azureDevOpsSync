@@ -45,10 +45,15 @@ function showResults(html) {
 async function testConnection() {
     const data = getConnectionData();
     
-    if (!data.orgUrl || !data.token) {
+    // Check for missing fields and provide specific feedback
+    const missing = [];
+    if (!data.orgUrl) missing.push('Organization URL');
+    if (!data.token) missing.push('Personal Access Token');
+    
+    if (missing.length > 0) {
         showResults(`
             <div class="alert alert-error">
-                ⚠️ Please fill in Organization URL and Personal Access Token
+                ⚠️ Please fill in the following required field(s): ${missing.join(', ')}
             </div>
         `);
         return;
@@ -97,10 +102,17 @@ syncForm.addEventListener('submit', async (e) => {
     
     const data = getSyncData();
     
-    if (!data.orgUrl || !data.token || !data.sourceProject || !data.targetProject) {
+    // Check for missing fields and provide specific feedback
+    const missing = [];
+    if (!data.orgUrl) missing.push('Organization URL');
+    if (!data.token) missing.push('Personal Access Token');
+    if (!data.sourceProject) missing.push('Source Project');
+    if (!data.targetProject) missing.push('Target Project');
+    
+    if (missing.length > 0) {
         showResults(`
             <div class="alert alert-error">
-                ⚠️ Please fill in all required fields
+                ⚠️ Please fill in the following required field(s): ${missing.join(', ')}
             </div>
         `);
         return;

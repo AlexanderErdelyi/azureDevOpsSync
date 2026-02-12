@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const AzureDevOpsClient = require('../lib/azureDevOpsClient');
+const { sanitizeProjectName } = require('../lib/sanitize');
 
 // Initialize Azure DevOps client
 let client = null;
@@ -34,7 +35,7 @@ router.post('/work-items', async (req, res) => {
     const syncClient = new AzureDevOpsClient(orgUrl, token);
     
     // Sanitize project name to prevent WIQL injection
-    const sanitizedProject = project.replace(/'/g, "''");
+    const sanitizedProject = sanitizeProjectName(project);
     const query = wiql || `SELECT [System.Id], [System.Title], [System.State] FROM WorkItems WHERE [System.TeamProject] = '${sanitizedProject}'`;
     const workItems = await syncClient.getWorkItems(project, query);
     
@@ -81,7 +82,7 @@ router.post('/sync', async (req, res) => {
     } else {
       // Sync all work items from source project
       // Sanitize project name to prevent WIQL injection
-      const sanitizedProject = sourceProject.replace(/'/g, "''");
+      const sanitizedProject = sanitizeProjectName(sourceProject);
       const wiql = `SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '${sanitizedProject}'`;
       const sourceWorkItems = await syncClient.getWorkItems(sourceProject, wiql);
       

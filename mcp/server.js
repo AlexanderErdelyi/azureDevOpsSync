@@ -14,6 +14,7 @@
 
 const readline = require('readline');
 const AzureDevOpsClient = require('../lib/azureDevOpsClient');
+const { sanitizeProjectName } = require('../lib/sanitize');
 
 // MCP Protocol implementation
 const MCP_VERSION = '2024-11-05';
@@ -130,7 +131,7 @@ async function executeTool(name, args) {
         }
 
         // Sanitize project name to prevent WIQL injection
-        const sanitizedProject = args.project.replace(/'/g, "''");
+        const sanitizedProject = sanitizeProjectName(args.project);
         const wiql = args.wiql || `SELECT [System.Id], [System.Title], [System.State] FROM WorkItems WHERE [System.TeamProject] = '${sanitizedProject}'`;
         const workItems = await syncClient.getWorkItems(args.project, wiql);
 
@@ -176,7 +177,7 @@ async function executeTool(name, args) {
         } else {
           // Sync all work items
           // Sanitize project name to prevent WIQL injection
-          const sanitizedProject = args.sourceProject.replace(/'/g, "''");
+          const sanitizedProject = sanitizeProjectName(args.sourceProject);
           const wiql = `SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '${sanitizedProject}'`;
           const sourceWorkItems = await syncClient.getWorkItems(args.sourceProject, wiql);
 
