@@ -1,0 +1,34 @@
+{
+  "syncOptions": {
+    "includeAllFields": true,
+    "excludedFields": [],
+    "customMappings": {},
+    "verbose": false
+  },
+  "fieldMappingExamples": {
+    "example1": {
+      "description": "Exclude specific fields from sync",
+      "excludedFields": [
+        "System.History",
+        "System.Tags"
+      ]
+    },
+    "example2": {
+      "description": "Map priority values between projects",
+      "customMappings": {
+        "Microsoft.VSTS.Common.Priority": {
+          "1": "1",
+          "2": "2",
+          "3": "3",
+          "4": "4"
+        }
+      }
+    },
+    "example3": {
+      "description": "Set default assigned to in target project",
+      "customMappings": {
+        "System.AssignedTo": null
+      }
+    }
+  }
+}

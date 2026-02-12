@@ -45,10 +45,44 @@ router.post('/work-items', async (req, res) => {
   }
 });
 
+// Get field definitions for a work item type
+router.post('/work-item-type-fields', async (req, res) => {
+  try {
+    const { orgUrl, token, project, workItemType } = req.body;
+    
+    if (!orgUrl || !token || !project || !workItemType) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields: orgUrl, token, project, workItemType' 
+      });
+    }
+
+    const syncClient = new AzureDevOpsClient(orgUrl, token);
+    const fieldMetadata = await syncClient.getWorkItemTypeFieldsWithReferences(project, workItemType);
+    
+    res.json({ 
+      success: true, 
+      project,
+      workItemType,
+      fieldCount: Object.keys(fieldMetadata).length,
+      fields: fieldMetadata
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Sync work items between projects
 router.post('/sync', async (req, res) => {
   try {
-    const { orgUrl, token, sourceProject, targetProject, workItemIds } = req.body;
+    const { 
+      orgUrl, 
+      token, 
+      sourceProject, 
+      targetProject, 
+      workItemIds,
+      syncOptions = {}
+    } = req.body;
     
     if (!orgUrl || !token || !sourceProject || !targetProject) {
       return res.status(400).json({ 
@@ -66,12 +100,8 @@ router.post('/sync', async (req, res) => {
       for (const id of workItemIds) {
         try {
           const sourceWorkItem = await syncClient.getWorkItem(id);
-          const targetWorkItem = await syncClient.syncWorkItem(sourceWorkItem, targetProject);
-          results.push({
-            sourceId: id,
-            targetId: targetWorkItem.id,
-            title: sourceWorkItem.fields['System.Title']
-          });
+          const syncResult = await syncClient.syncWorkItemWithDetails(sourceWorkItem, targetProject, syncOptions);
+          results.push(syncResult);
         } catch (error) {
           errors.push({
             workItemId: id,
@@ -88,12 +118,8 @@ router.post('/sync', async (req, res) => {
       
       for (const workItem of sourceWorkItems) {
         try {
-          const targetWorkItem = await syncClient.syncWorkItem(workItem, targetProject);
-          results.push({
-            sourceId: workItem.id,
-            targetId: targetWorkItem.id,
-            title: workItem.fields['System.Title']
-          });
+          const syncResult = await syncClient.syncWorkItemWithDetails(workItem, targetProject, syncOptions);
+          results.push(syncResult);
         } catch (error) {
           errors.push({
             workItemId: workItem.id,
