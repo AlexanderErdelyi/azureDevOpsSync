@@ -68,6 +68,8 @@ router.get('/fields', async (req, res) => {
     let query = db('connector_fields as cf')
       .join('connector_work_item_types as cwit', 'cf.work_item_type_id', 'cwit.id')
       .where('cwit.connector_id', connector_id)
+      .where('cf.enabled_for_sync', true)
+      .where('cwit.enabled_for_sync', true)
       .select(
         'cf.*',
         'cwit.type_name as work_item_type'
@@ -121,6 +123,8 @@ router.get('/statuses', async (req, res) => {
     let query = db('connector_statuses as cs')
       .join('connector_work_item_types as cwit', 'cs.work_item_type_id', 'cwit.id')
       .where('cwit.connector_id', connector_id)
+      .where('cs.enabled_for_sync', true)
+      .where('cwit.enabled_for_sync', true)
       .select(
         'cs.*',
         'cwit.type_name as work_item_type'

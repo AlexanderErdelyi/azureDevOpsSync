@@ -45,16 +45,24 @@ const Monitoring = () => {
   };
 
   const executeSync = async (dryRun = false) => {
+    if (!selectedConfig) {
+      alert('Please select a sync configuration first');
+      return;    }
+    
     setExecuting(true);
     try {
+      let result;
       if (dryRun) {
-        await executeApi.executeSyncDryRun(selectedConfig);
+        result = await executeApi.executeSyncDryRun(selectedConfig);
+        alert(`Dry run completed!\n\nTotal: ${result.data.results.total}\nWould create: ${result.data.results.created}\nWould update: ${result.data.results.updated}\nErrors: ${result.data.results.errors}`);
       } else {
-        await executeApi.executeSync(selectedConfig);
+        result = await executeApi.executeSync(selectedConfig);
+        alert(`Sync executed successfully!\n\nTotal: ${result.data.results.total}\nCreated: ${result.data.results.created}\nUpdated: ${result.data.results.updated}\nErrors: ${result.data.results.errors}`);
       }
       setTimeout(() => loadExecutions(selectedConfig), 1000);
     } catch (error) {
-      alert('Error: ' + (error.response?.data?.error || error.message));
+      console.error('Execute sync error:', error);
+      alert('Error: ' + (error.response?.data?.message || error.response?.data?.error || error.message));
     } finally {
       setExecuting(false);
     }
