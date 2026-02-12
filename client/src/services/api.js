@@ -36,6 +36,7 @@ export const metadataApi = {
     typeId ? api.get('/metadata/statuses', { params: { connector_id: connectorId, type_id: typeId } })
           : api.get('/metadata/statuses', { params: { connector_id: connectorId } }),
   updateWorkItemType: (id, data) => api.put(`/metadata/work-item-types/${id}`, data),
+  updateField: (id, data) => api.put(`/metadata/fields/${id}`, data),
   suggestMappings: (sourceConnectorId, sourceTypeId, targetConnectorId, targetTypeId) => 
     api.get('/metadata/suggest-mappings', { 
       params: { 

@@ -354,4 +354,38 @@ router.put('/work-item-types/:id', async (req, res) => {
   }
 });
 
+/**
+ * PUT /api/metadata/fields/:id
+ * Update field settings (enable/disable for sync)
+ */
+router.put('/fields/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { is_enabled } = req.body;
+    
+    if (is_enabled === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: is_enabled'
+      });
+    }
+    
+    await db('connector_fields')
+      .where({ id })
+      .update({ enabled_for_sync: is_enabled ? 1 : 0 });
+    
+    res.json({
+      success: true,
+      message: 'Field updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating field:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update field',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;

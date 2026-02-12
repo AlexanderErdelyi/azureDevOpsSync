@@ -77,7 +77,7 @@ const SyncConfigs = () => {
 
   const loadMetadata = async (connectorId, type) => {
     try {
-      const res = await metadataApi.getWorkItemTypes(connectorId);
+      const res = await metadataApi.getWorkItemTypes(connectorId, true); // Pass true for enabled_only
       const types = res.data.work_item_types || [];
       
       // Store full objects so we have both name and ID
@@ -204,6 +204,13 @@ const SyncConfigs = () => {
         i === index ? { ...tm, [field]: value } : tm
       )
     }));
+    
+    // Load fields when a type is selected
+    if (field === 'source_type' && value) {
+      loadFieldsForType(wizardData.source_connector_id, value, 'source');
+    } else if (field === 'target_type' && value) {
+      loadFieldsForType(wizardData.target_connector_id, value, 'target');
+    }
   };
 
   const removeTypeMapping = (index) => {
@@ -417,10 +424,11 @@ const SyncConfigs = () => {
                         <h3>Type Mapping {index + 1}</h3>
                         <button
                           type="button"
-                          className="btn btn-danger btn-sm"
+                          className="btn-icon-danger"
                           onClick={() => removeTypeMapping(index)}
+                          title="Remove mapping"
                         >
-                          <X size={16} /> Remove
+                          <Trash2 size={16} />
                         </button>
                       </div>
                       
