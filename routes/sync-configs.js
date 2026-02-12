@@ -117,6 +117,9 @@ router.post('/', async (req, res) => {
       description,
       source_connector_id,
       target_connector_id,
+      source_work_item_type,
+      target_work_item_type,
+      field_mappings = [],
       direction = 'one-way',
       trigger_type = 'manual',
       schedule_cron = null,
@@ -154,27 +157,94 @@ router.post('/', async (req, res) => {
       });
     }
     
-    // Insert config
-    const [id] = await db('sync_configs').insert({
-      name,
-      description,
-      source_connector_id,
-      target_connector_id,
-      direction,
-      trigger_type,
-      schedule_cron,
-      conflict_resolution,
-      sync_filter: sync_filter ? JSON.stringify(sync_filter) : null,
-      is_active: 1,
-      options: JSON.stringify(options),
-      created_at: new Date(),
-      updated_at: new Date()
+    // Use transaction to ensure all or nothing
+    const configId = await db.transaction(async (trx) => {
+      // Insert config
+      const [id] = await trx('sync_configs').insert({
+        name,
+        description,
+        source_connector_id,
+        target_connector_id,
+        direction,
+        trigger_type,
+        schedule_cron,
+        conflict_resolution,
+        sync_filter: sync_filter ? JSON.stringify(sync_filter) : null,
+        is_active: 1,
+        options: JSON.stringify(options),
+        created_at: new Date(),
+        updated_at: new Date()
+      });
+      
+      // If work item types and field mappings provided, create them
+      if (source_work_item_type && target_work_item_type && field_mappings.length > 0) {
+        // Find work item type IDs by name
+        const sourceType = await trx('connector_work_item_types')
+          .where({
+            connector_id: source_connector_id,
+            type_name: source_work_item_type
+          })
+          .first();
+          
+        const targetType = await trx('connector_work_item_types')
+          .where({
+            connector_id: target_connector_id,
+            type_name: target_work_item_type
+          })
+          .first();
+          
+        if (sourceType && targetType) {
+          // Create type mapping
+          const [typeMappingId] = await trx('sync_type_mappings').insert({
+            sync_config_id: id,
+            source_type_id: sourceType.id,
+            target_type_id: targetType.id,
+            is_active: true,
+            created_at: new Date()
+          });
+          
+          // Create field mappings
+          for (const mapping of field_mappings) {
+            if (!mapping.source_field || !mapping.target_field) continue;
+            
+            // Find field IDs by name or reference
+            const sourceField = await trx('connector_fields')
+              .where({ work_item_type_id: sourceType.id })
+              .andWhere(function() {
+                this.where('field_name', mapping.source_field)
+                    .orWhere('field_reference', mapping.source_field);
+              })
+              .first();
+              
+            const targetField = await trx('connector_fields')
+              .where({ work_item_type_id: targetType.id })
+              .andWhere(function() {
+                this.where('field_name', mapping.target_field)
+                    .orWhere('field_reference', mapping.target_field);
+              })
+              .first();
+              
+            if (sourceField && targetField) {
+              await trx('sync_field_mappings').insert({
+                type_mapping_id: typeMappingId,
+                source_field_id: sourceField.id,
+                target_field_id: targetField.id,
+                transformation_function: mapping.transformation || null,
+                is_active: true,
+                created_at: new Date()
+              });
+            }
+          }
+        }
+      }
+      
+      return id;
     });
     
     res.status(201).json({
       success: true,
       message: 'Sync configuration created successfully',
-      sync_config_id: id
+      sync_config_id: configId
     });
   } catch (error) {
     console.error('Error creating sync configuration:', error);

@@ -10,7 +10,8 @@ import {
   ArrowRight,
   Settings,
   Filter,
-  Zap
+  Zap,
+  Edit
 } from 'lucide-react';
 import { connectorApi, metadataApi, syncConfigApi } from '../services/api';
 import './SyncConfigs.css';
@@ -38,6 +39,7 @@ const SyncConfigs = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [sourceMetadata, setSourceMetadata] = useState(null);
   const [targetMetadata, setTargetMetadata] = useState(null);
+  const [editingConfigId, setEditingConfigId] = useState(null);
 
   const [wizardData, setWizardData] = useState({
     name: '',
@@ -150,14 +152,17 @@ const SyncConfigs = () => {
   };
 
   const handleSubmit = async () => {
-    try {
-      await syncConfigApi.createSyncConfig(wizardData);
+    try {      if (editingConfigId) {
+        await syncConfigApi.updateSyncConfig(editingConfigId, wizardData);
+      } else {
+        await syncConfigApi.createSyncConfig(wizardData);
+      }
       await loadData();
       setShowWizard(false);
       resetWizard();
     } catch (error) {
-      console.error('Error creating sync config:', error);
-      alert('Error creating sync config: ' + (error.response?.data?.error || error.message));
+      console.error('Error saving sync config:', error);
+      alert('Error saving sync config: ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -165,6 +170,7 @@ const SyncConfigs = () => {
     setCurrentStep(1);
     setSourceMetadata(null);
     setTargetMetadata(null);
+    setEditingConfigId(null);
     setWizardData({
       name: '',
       source_connector_id: '',
@@ -623,7 +629,10 @@ const SyncConfigs = () => {
                   </div>
 
                   <div className="config-card-actions">
-                    <button className="btn-icon-action danger" onClick={() => deleteConfig(config.id)}>
+                    <button className="btn-icon-action" onClick={() => editConfig(config)} title="Edit">
+                      <Edit size={16} />
+                    </button>
+                    <button className="btn-icon-action danger" onClick={() => deleteConfig(config.id)} title="Delete">
                       <Trash2 size={16} />
                     </button>
                   </div>
