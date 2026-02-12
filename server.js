@@ -34,10 +34,12 @@ app.use('/api', apiLimiter);
 const connectorsRoutes = require('./routes/connectors');
 const metadataRoutes = require('./routes/metadata');
 const syncConfigsRoutes = require('./routes/sync-configs');
+const executeRoutes = require('./routes/execute');
 
 app.use('/api/connectors', connectorsRoutes);
 app.use('/api/metadata', metadataRoutes);
 app.use('/api/sync-configs', syncConfigsRoutes);
+app.use('/api/execute', executeRoutes);
 
 // Legacy Azure DevOps sync routes (deprecated, maintained for backward compatibility)
 const syncRoutes = require('./routes/sync');
