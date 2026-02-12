@@ -16,6 +16,10 @@ async function checkSchema() {
     const typeMappingSchema = await db.raw("PRAGMA table_info(sync_type_mappings)");
     typeMappingSchema.forEach(col => console.log(`  - ${col.name} (${col.type})`));
     
+    console.log('\nsync_executions schema:');
+    const executionsSchema = await db.raw("PRAGMA table_info(sync_executions)");
+    executionsSchema.forEach(col => console.log(`  - ${col.name} (${col.type})`));
+    
     process.exit(0);
   } catch (error) {
     console.error('Error:', error);
