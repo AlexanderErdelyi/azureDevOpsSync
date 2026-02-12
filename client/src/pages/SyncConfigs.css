@@ -567,3 +567,35 @@
   border-radius: 6px;
   font-size: 0.875rem;
 }
+
+/* Animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Button Icon Styles */
+.btn-icon-action.primary {
+  color: var(--primary);
+}
+
+.btn-icon-action.primary:hover {
+  background: var(--bg-blue);
+}
+
+.btn-icon-action.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-icon-action.primary:disabled:hover {
+  background: transparent;
+}

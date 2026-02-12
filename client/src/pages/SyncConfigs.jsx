@@ -11,9 +11,11 @@ import {
   Settings,
   Filter,
   Zap,
-  Edit
+  Edit,
+  Play,
+  RefreshCw
 } from 'lucide-react';
-import { connectorApi, metadataApi, syncConfigApi } from '../services/api';
+import { connectorApi, metadataApi, syncConfigApi, executeApi } from '../services/api';
 import './SyncConfigs.css';
 
 const STEPS = [
@@ -40,6 +42,7 @@ const SyncConfigs = () => {
   const [sourceMetadata, setSourceMetadata] = useState(null);
   const [targetMetadata, setTargetMetadata] = useState(null);
   const [editingConfigId, setEditingConfigId] = useState(null);
+  const [executingConfigId, setExecutingConfigId] = useState(null);
 
   const [wizardData, setWizardData] = useState({
     name: '',
@@ -312,6 +315,36 @@ const SyncConfigs = () => {
     } catch (error) {
       console.error('Error deleting config:', error);
       alert('Error deleting config: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const executeSync = async (configId, configName) => {
+    if (!confirm(`Execute sync for "${configName}"?`)) return;
+    
+    setExecutingConfigId(configId);
+    try {
+      const result = await executeApi.executeSync(configId);
+      
+      if (result.data.success) {
+        const stats = result.data;
+        alert(`✓ Sync completed successfully!\n\nCreated: ${stats.created || 0}\nUpdated: ${stats.updated || 0}\nSkipped: ${stats.skipped || 0}\nErrors: ${stats.errors || 0}`);
+        
+        // Optionally navigate to monitoring page to see details
+        if (stats.executionId) {
+          const goToMonitoring = confirm('Would you like to view execution details in Monitoring?');
+          if (goToMonitoring) {
+            navigate('/monitoring');
+          }
+        }
+      } else {
+        alert('✗ Sync failed: ' + (result.data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error executing sync:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
+      alert(`✗ Sync execution failed:\n\n${errorMsg}\n\nPlease check:\n- Connectors are active and configured\n- Metadata has been discovered\n- Field mappings are correct`);
+    } finally {
+      setExecutingConfigId(null);
     }
   };
 
@@ -819,6 +852,18 @@ const SyncConfigs = () => {
                   </div>
 
                   <div className="config-card-actions">
+                    <button 
+                      className="btn-icon-action primary" 
+                      onClick={() => executeSync(config.id, config.name)} 
+                      title="Execute Sync"
+                      disabled={!config.is_active || executingConfigId === config.id}
+                    >
+                      {executingConfigId === config.id ? (
+                        <RefreshCw size={16} className="spin" />
+                      ) : (
+                        <Play size={16} />
+                      )}
+                    </button>
                     <button className="btn-icon-action" onClick={() => editConfig(config)} title="Edit">
                       <Edit size={16} />
                     </button>
