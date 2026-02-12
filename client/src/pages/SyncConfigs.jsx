@@ -746,8 +746,15 @@ const SyncConfigs = () => {
                       <span>{connectors.find(c => c.id == wizardData.target_connector_id)?.name || 'N/A'}</span>
                     </div>
                     <div className="summary-item">
+                      <label>Type Mappings:</label>
+                      <span>{wizardData.type_mappings?.length || 0} mappings</span>
+                    </div>
+                    <div className="summary-item">
                       <label>Field Mappings:</label>
-                      <span>{wizardData.field_mappings.length} mappings</span>
+                      <span>
+                        {wizardData.type_mappings?.reduce((total, tm) => 
+                          total + (tm.field_mappings?.length || 0), 0) || 0} mappings
+                      </span>
                     </div>
                     <div className="summary-item">
                       <label>Trigger:</label>
