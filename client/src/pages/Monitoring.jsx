@@ -103,7 +103,7 @@ const Monitoring = () => {
     
     setExecuting(true);
     try {
-      const workItemIds = selectedItems || (previewData?.items?.map(item => item.sourceId) || null);
+      const workItemIds = selectedItems || previewData?.items?.map(item => item.sourceId) || null;
       const result = await executeApi.executeSync(selectedConfig, workItemIds);
       alert(`Sync executed successfully!\n\nTotal: ${result.data.results.total}\nCreated: ${result.data.results.created}\nUpdated: ${result.data.results.updated}\nErrors: ${result.data.results.errors}`);
       setTimeout(() => loadExecutions(selectedConfig), 1000);
