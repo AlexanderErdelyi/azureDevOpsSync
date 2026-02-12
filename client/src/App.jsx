@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Connectors from './pages/Connectors';
+import Metadata from './pages/Metadata';
 import SyncConfigs from './pages/SyncConfigs';
 import Monitoring from './pages/Monitoring';
 import Scheduler from './pages/Scheduler';
@@ -16,6 +17,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/connectors" element={<Connectors />} />
+        <Route path="/metadata" element={<Metadata />} />
         <Route path="/sync-configs" element={<SyncConfigs />} />
         <Route path="/monitoring" element={<Monitoring />} />
         <Route path="/scheduler" element={<Scheduler />} />

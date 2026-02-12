@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
-  Plug, 
+  Plug,
+  Database,
   Settings, 
   Activity, 
   Clock, 
@@ -20,6 +21,7 @@ const Layout = ({ children }) => {
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/connectors', icon: Plug, label: 'Connectors' },
+    { path: '/metadata', icon: Database, label: 'Metadata' },
     { path: '/sync-configs', icon: Settings, label: 'Sync Configs' },
     { path: '/monitoring', icon: Activity, label: 'Monitoring' },
     { path: '/scheduler', icon: Clock, label: 'Scheduler' },

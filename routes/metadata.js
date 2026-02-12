@@ -50,25 +50,26 @@ router.get('/work-item-types', async (req, res) => {
 
 /**
  * GET /api/metadata/fields
- * Get fields for a connector and work item type
- * Query params: connector_id, type_id, required_only
+ * Get fields for a connector (optionally filtered by work item type)
+ * Query params: connector_id (required), type_id (optional), required_only (optional)
  */
 router.get('/fields', async (req, res) => {
   try {
     const { connector_id, type_id, required_only } = req.query;
     
-    if (!connector_id || !type_id) {
+    if (!connector_id) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required parameters: connector_id, type_id'
+        error: 'Missing required parameter: connector_id'
       });
     }
     
     let query = db('connector_fields')
-      .where({
-        connector_id,
-        work_item_type_id: type_id
-      });
+      .where({ connector_id });
+    
+    if (type_id) {
+      query = query.where({ work_item_type_id: type_id });
+    }
     
     if (required_only === 'true') {
       query = query.where({ is_required: 1 });
@@ -79,7 +80,7 @@ router.get('/fields', async (req, res) => {
     res.json({
       success: true,
       connector_id: parseInt(connector_id),
-      work_item_type_id: parseInt(type_id),
+      work_item_type_id: type_id ? parseInt(type_id) : null,
       count: fields.length,
       fields: fields
     });
@@ -95,31 +96,33 @@ router.get('/fields', async (req, res) => {
 
 /**
  * GET /api/metadata/statuses
- * Get statuses for a connector and work item type
- * Query params: connector_id, type_id
+ * Get statuses for a connector (optionally filtered by work item type)
+ * Query params: connector_id (required), type_id (optional)
  */
 router.get('/statuses', async (req, res) => {
   try {
     const { connector_id, type_id } = req.query;
     
-    if (!connector_id || !type_id) {
+    if (!connector_id) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required parameters: connector_id, type_id'
+        error: 'Missing required parameter: connector_id'
       });
     }
     
-    const statuses = await db('connector_statuses')
-      .where({
-        connector_id,
-        work_item_type_id: type_id
-      })
-      .orderBy('status_name');
+    let query = db('connector_statuses')
+      .where({ connector_id });
+    
+    if (type_id) {
+      query = query.where({ work_item_type_id: type_id });
+    }
+    
+    const statuses = await query.orderBy('status_name');
     
     res.json({
       success: true,
       connector_id: parseInt(connector_id),
-      work_item_type_id: parseInt(type_id),
+      work_item_type_id: type_id ? parseInt(type_id) : null,
       count: statuses.length,
       statuses: statuses
     });

@@ -22,13 +22,29 @@ export const connectorApi = {
   createConnector: (data) => api.post('/connectors', data),
   updateConnector: (id, data) => api.put(`/connectors/${id}`, data),
   deleteConnector: (id) => api.delete(`/connectors/${id}`),
-  testConnection: (id) => api.post(`/connectors/${id}/test`)
+  testConnection: (id) => api.post(`/connectors/${id}/test`),
+  discoverMetadata: (id) => api.post(`/connectors/${id}/discover`)
 };
 
 export const metadataApi = {
-  getMetadata: (connectorId) => api.get(`/metadata/${connectorId}`),
-  getWorkItemTypes: (connectorId) => api.get(`/metadata/${connectorId}/work-item-types`),
-  getWorkItemFields: (connectorId, workItemType) => api.get(`/metadata/${connectorId}/work-item-types/${workItemType}/fields`)
+  getWorkItemTypes: (connectorId, enabledOnly = false) => 
+    api.get('/metadata/work-item-types', { params: { connector_id: connectorId, enabled_only: enabledOnly } }),
+  getWorkItemFields: (connectorId, typeId = null, requiredOnly = false) => 
+    typeId ? api.get('/metadata/fields', { params: { connector_id: connectorId, type_id: typeId, required_only: requiredOnly } })
+          : api.get('/metadata/fields', { params: { connector_id: connectorId } }),
+  getStatuses: (connectorId, typeId = null) => 
+    typeId ? api.get('/metadata/statuses', { params: { connector_id: connectorId, type_id: typeId } })
+          : api.get('/metadata/statuses', { params: { connector_id: connectorId } }),
+  updateWorkItemType: (id, data) => api.put(`/metadata/work-item-types/${id}`, data),
+  suggestMappings: (sourceConnectorId, sourceTypeId, targetConnectorId, targetTypeId) => 
+    api.get('/metadata/suggest-mappings', { 
+      params: { 
+        source_connector_id: sourceConnectorId, 
+        source_type_id: sourceTypeId,
+        target_connector_id: targetConnectorId,
+        target_type_id: targetTypeId
+      } 
+    })
 };
 
 export const syncConfigApi = {
