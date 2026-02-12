@@ -78,10 +78,13 @@ const SyncConfigs = () => {
       const res = await metadataApi.getWorkItemTypes(connectorId);
       const types = res.data.work_item_types || [];
       
+      // Extract just the type names from the objects
+      const typeNames = types.map(t => t.type_name);
+      
       if (type === 'source') {
-        setSourceMetadata({ types, fields: {} });
+        setSourceMetadata({ types: typeNames, fields: {} });
       } else {
-        setTargetMetadata({ types, fields: {} });
+        setTargetMetadata({ types: typeNames, fields: {} });
       }
     } catch (error) {
       console.error(`Error loading ${type} metadata:`, error);
