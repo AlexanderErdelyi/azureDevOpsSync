@@ -64,18 +64,24 @@ router.get('/fields', async (req, res) => {
       });
     }
     
-    let query = db('connector_fields')
-      .where({ connector_id });
+    // Join through work item types to filter by connector
+    let query = db('connector_fields as cf')
+      .join('connector_work_item_types as cwit', 'cf.work_item_type_id', 'cwit.id')
+      .where('cwit.connector_id', connector_id)
+      .select(
+        'cf.*',
+        'cwit.type_name as work_item_type'
+      );
     
     if (type_id) {
-      query = query.where({ work_item_type_id: type_id });
+      query = query.where('cf.work_item_type_id', type_id);
     }
     
     if (required_only === 'true') {
-      query = query.where({ is_required: 1 });
+      query = query.where('cf.is_required', 1);
     }
     
-    const fields = await query.orderBy('field_name');
+    const fields = await query.orderBy('cf.field_name');
     
     res.json({
       success: true,
@@ -86,6 +92,7 @@ router.get('/fields', async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting fields:', error);
+    console.error('Error details:', error.message, error.stack);
     res.status(500).json({
       success: false,
       error: 'Failed to get fields',
@@ -110,14 +117,20 @@ router.get('/statuses', async (req, res) => {
       });
     }
     
-    let query = db('connector_statuses')
-      .where({ connector_id });
+    // Join through work item types to filter by connector
+    let query = db('connector_statuses as cs')
+      .join('connector_work_item_types as cwit', 'cs.work_item_type_id', 'cwit.id')
+      .where('cwit.connector_id', connector_id)
+      .select(
+        'cs.*',
+        'cwit.type_name as work_item_type'
+      );
     
     if (type_id) {
-      query = query.where({ work_item_type_id: type_id });
+      query = query.where('cs.work_item_type_id', type_id);
     }
     
-    const statuses = await query.orderBy('status_name');
+    const statuses = await query.orderBy('cs.status_name');
     
     res.json({
       success: true,
@@ -128,6 +141,7 @@ router.get('/statuses', async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting statuses:', error);
+    console.error('Error details:', error.message, error.stack);
     res.status(500).json({
       success: false,
       error: 'Failed to get statuses',
