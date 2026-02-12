@@ -372,3 +372,73 @@ JOIN sync_configs sc ON se.sync_config_id = sc.id
 JOIN synced_items si ON sc_conf.synced_item_id = si.id
 WHERE sc_conf.resolution IS NULL
 ORDER BY sc_conf.created_at DESC;
+
+-- ============================================================
+-- WEBHOOK MANAGEMENT
+-- ============================================================
+
+-- Register webhooks for sync triggers
+CREATE TABLE webhooks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  sync_config_id INTEGER NOT NULL,
+  connector_id INTEGER NOT NULL, -- which connector this webhook is for
+  webhook_url TEXT NOT NULL UNIQUE, -- generated URL path
+  secret TEXT NOT NULL, -- for signature verification
+  is_active BOOLEAN DEFAULT 1,
+  event_types JSON, -- array of event types to trigger on
+  metadata JSON, -- additional webhook configuration
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  last_triggered_at DATETIME,
+  trigger_count INTEGER DEFAULT 0,
+  FOREIGN KEY (sync_config_id) REFERENCES sync_configs(id) ON DELETE CASCADE,
+  FOREIGN KEY (connector_id) REFERENCES connectors(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_webhooks_url ON webhooks(webhook_url);
+CREATE INDEX idx_webhooks_config ON webhooks(sync_config_id);
+CREATE INDEX idx_webhooks_active ON webhooks(is_active);
+
+-- Log webhook deliveries
+CREATE TABLE webhook_deliveries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  webhook_id INTEGER NOT NULL,
+  payload JSON NOT NULL,
+  headers JSON,
+  signature TEXT,
+  signature_valid BOOLEAN,
+  status TEXT NOT NULL, -- 'success', 'failed', 'rejected'
+  response_code INTEGER,
+  error_message TEXT,
+  processing_time_ms INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (webhook_id) REFERENCES webhooks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_webhook_deliveries_webhook ON webhook_deliveries(webhook_id);
+CREATE INDEX idx_webhook_deliveries_status ON webhook_deliveries(status);
+CREATE INDEX idx_webhook_deliveries_created ON webhook_deliveries(created_at);
+
+-- ============================================================
+-- NOTIFICATION SETTINGS
+-- ============================================================
+
+-- Email notification settings for sync events
+CREATE TABLE notification_settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sync_config_id INTEGER,
+  notification_type TEXT NOT NULL, -- 'email', 'slack', 'teams', 'webhook'
+  event_triggers JSON NOT NULL, -- ['sync_completed', 'sync_failed', 'conflict_detected']
+  recipients JSON NOT NULL, -- array of email addresses or webhook URLs
+  settings JSON, -- additional notification settings
+  is_active BOOLEAN DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (sync_config_id) REFERENCES sync_configs(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_notification_settings_config ON notification_settings(sync_config_id);
+CREATE INDEX idx_notification_settings_type ON notification_settings(notification_type);
+CREATE INDEX idx_notification_settings_active ON notification_settings(is_active);
+
