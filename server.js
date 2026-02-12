@@ -27,7 +27,7 @@ const apiLimiter = rateLimit({
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public/dist')));
 
 // Apply rate limiting to API routes
 app.use('/api', apiLimiter);
@@ -51,14 +51,14 @@ app.use('/api', schedulerRoutes);
 const syncRoutes = require('./routes/sync');
 app.use('/api', syncRoutes);
 
-// Serve main page
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Serve React app for all non-API routes (must be after API routes)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/dist/index.html'));
 });
 
 // Initialize database and connectors, then start server
