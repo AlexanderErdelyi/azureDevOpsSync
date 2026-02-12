@@ -78,37 +78,52 @@ const SyncConfigs = () => {
       const res = await metadataApi.getWorkItemTypes(connectorId);
       const types = res.data.work_item_types || [];
       
-      // Extract just the type names from the objects
-      const typeNames = types.map(t => t.type_name);
+      // Store full objects so we have both name and ID
+      const typeMap = {};
+      types.forEach(t => {
+        typeMap[t.type_name] = t;
+      });
       
       if (type === 'source') {
-        setSourceMetadata({ types: typeNames, fields: {} });
+        setSourceMetadata({ types: Object.keys(typeMap), typeMap, fields: {} });
       } else {
-        setTargetMetadata({ types: typeNames, fields: {} });
+        setTargetMetadata({ types: Object.keys(typeMap), typeMap, fields: {} });
       }
     } catch (error) {
       console.error(`Error loading ${type} metadata:`, error);
     }
   };
 
-  const loadFieldsForType = async (connectorId, workItemType, type) => {
+  const loadFieldsForType = async (connectorId, workItemTypeName, type) => {
     try {
-      const res = await metadataApi.getWorkItemFields(connectorId, workItemType);
+      // Get the type ID from the type name
+      const metadata = type === 'source' ? sourceMetadata : targetMetadata;
+      const typeObj = metadata?.typeMap?.[workItemTypeName];
+      
+      if (!typeObj) {
+        console.error(`Type ${workItemTypeName} not found in metadata`);
+        return;
+      }
+      
+      const res = await metadataApi.getWorkItemFields(connectorId, typeObj.id);
       const fields = res.data.fields || [];
+      
+      // Extract field names from field objects
+      const fieldNames = fields.map(f => f.field_name);
       
       if (type === 'source') {
         setSourceMetadata(prev => ({
           ...prev,
-          fields: { ...prev.fields, [workItemType]: fields }
+          fields: { ...prev.fields, [workItemTypeName]: fieldNames }
         }));
       } else {
         setTargetMetadata(prev => ({
           ...prev,
-          fields: { ...prev.fields, [workItemType]: fields }
+          fields: { ...prev.fields, [workItemTypeName]: fieldNames }
         }));
       }
     } catch (error) {
-      console.error(`Error loading fields for ${workItemType}:`, error);
+      console.error(`Error loading fields for ${workItemTypeName}:`, error);
     }
   };
 

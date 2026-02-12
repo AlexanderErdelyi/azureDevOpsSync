@@ -40,7 +40,7 @@ router.get('/', async (req, res) => {
     res.json({
       success: true,
       count: configs.length,
-      sync_configs: configs
+      configs: configs  // Changed from sync_configs to configs
     });
   } catch (error) {
     console.error('Error listing sync configurations:', error);
