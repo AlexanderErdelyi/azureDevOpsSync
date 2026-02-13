@@ -40,7 +40,7 @@ async function getAppliedMigrations() {
  * Get list of pending migrations from migrations directory
  */
 async function getPendingMigrations() {
-  const migrationsDir = path.join(__dirname, '../migrations');
+  const migrationsDir = path.join(__dirname, './migrations');
   
   if (!fs.existsSync(migrationsDir)) {
     return [];
@@ -58,7 +58,7 @@ async function getPendingMigrations() {
  * Run a single migration
  */
 async function runMigration(filename) {
-  const migrationsDir = path.join(__dirname, '../migrations');
+  const migrationsDir = path.join(__dirname, './migrations');
   const filePath = path.join(migrationsDir, filename);
   const content = fs.readFileSync(filePath, 'utf8');
 
@@ -123,7 +123,7 @@ async function runMigrations() {
 function createMigration(name) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
   const filename = `${timestamp}_${name}.sql`;
-  const migrationsDir = path.join(__dirname, '../migrations');
+  const migrationsDir = path.join(__dirname, './migrations');
   
   if (!fs.existsSync(migrationsDir)) {
     fs.mkdirSync(migrationsDir, { recursive: true });

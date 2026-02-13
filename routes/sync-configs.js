@@ -37,10 +37,16 @@ router.get('/', async (req, res) => {
     
     const configs = await query;
     
+    // Map direction to sync_direction for frontend compatibility
+    const mappedConfigs = configs.map(config => ({
+      ...config,
+      sync_direction: config.direction
+    }));
+    
     res.json({
       success: true,
       count: configs.length,
-      configs: configs  // Changed from sync_configs to configs
+      configs: mappedConfigs  // Changed from sync_configs to configs
     });
   } catch (error) {
     console.error('Error listing sync configurations:', error);
@@ -135,6 +141,7 @@ router.get('/:id', async (req, res) => {
       success: true,
       sync_config: {
         ...config,
+        sync_direction: config.direction, // Map direction to sync_direction for frontend
         type_mappings: typeMappingsWithDetails
       }
     });
@@ -160,7 +167,7 @@ router.post('/', async (req, res) => {
       source_connector_id,
       target_connector_id,
       type_mappings = [],
-      direction = 'one-way',
+      direction = req.body.sync_direction || 'one-way',
       trigger_type = 'manual',
       schedule_cron = null,
       conflict_resolution = 'last-write-wins',
@@ -206,6 +213,7 @@ router.post('/', async (req, res) => {
         source_connector_id,
         target_connector_id,
         direction,
+        bidirectional: direction === 'bidirectional' ? 1 : 0,
         trigger_type,
         schedule_cron,
         conflict_resolution,
@@ -346,7 +354,8 @@ router.put('/:id', async (req, res) => {
       name,
       description,
       type_mappings = [],
-      direction,
+      direction: rawDirection,
+      sync_direction,
       trigger_type,
       schedule_cron,
       conflict_resolution,
@@ -354,6 +363,9 @@ router.put('/:id', async (req, res) => {
       sync_filter,
       options
     } = req.body;
+    
+    // Handle both 'direction' and 'sync_direction' from frontend
+    const direction = rawDirection || sync_direction;
     
     // Check if exists
     const existing = await db('sync_configs').where({ id }).first();
@@ -383,6 +395,12 @@ router.put('/:id', async (req, res) => {
             updates[field] = req.body[field];
           }
         }
+      }
+      
+      // Update bidirectional flag based on direction
+      if (direction !== undefined) {
+        updates.direction = direction;
+        updates.bidirectional = direction === 'bidirectional' ? 1 : 0;
       }
       
       // Update main config

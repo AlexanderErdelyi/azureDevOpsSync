@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, CheckCircle2, XCircle, Clock, Play, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import { syncConfigApi, executeApi } from '../services/api';
+import { RefreshCw, CheckCircle2, XCircle, Clock, Play, AlertCircle, ChevronDown, ChevronUp, Eye, AlertTriangle } from 'lucide-react';
+import { syncConfigApi, executeApi, conflictsApi } from '../services/api';
 import './Page.css';
 
 const Monitoring = () => {
@@ -11,6 +11,11 @@ const Monitoring = () => {
   const [executing, setExecuting] = useState(false);
   const [expandedExecution, setExpandedExecution] = useState(null);
   const [executionDetails, setExecutionDetails] = useState({});
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewData, setPreviewData] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState(Date.now());
+  const [rateLimited, setRateLimited] = useState(false);
 
   useEffect(() => {
     loadConfigs();
@@ -39,12 +44,27 @@ const Monitoring = () => {
 
   const loadExecutions = async (configId) => {
     try {
+      setRateLimited(false);
       const res = await executeApi.getExecutionHistory(configId, 100);
       setExecutions(res.data.executions || []);
+      setLastRefresh(Date.now());
     } catch (error) {
       console.error('Error loading executions:', error);
+      if (error.response?.status === 429) {
+        setRateLimited(true);
+      }
       setExecutions([]);
     }
+  };
+
+  const handleManualRefresh = () => {
+    // Debounce: prevent refresh if less than 2 seconds since last refresh
+    const timeSinceLastRefresh = Date.now() - lastRefresh;
+    if (timeSinceLastRefresh < 2000) {
+      // Visual feedback - button is temporarily disabled in UI
+      return;
+    }
+    loadExecutions(selectedConfig);
   };
 
   const executeSync = async (dryRun = false) => {
@@ -71,6 +91,50 @@ const Monitoring = () => {
     }
   };
 
+  const previewSync = async () => {
+    if (!selectedConfig) {
+      alert('Please select a sync configuration first');
+      return;
+    }
+    
+    setPreviewLoading(true);
+    try {
+      const result = await executeApi.previewSync(selectedConfig);
+      setPreviewData(result.data);
+      setShowPreview(true);
+    } catch (error) {
+      console.error('Preview sync error:', error);
+      alert('Error: ' + (error.response?.data?.message || error.response?.data?.error || error.message));
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const executeFromPreview = async (selectedItems = null) => {
+    setShowPreview(false);
+    
+    if (!selectedConfig) {
+      alert('Please select a sync configuration first');
+      return;
+    }
+    
+    setExecuting(true);
+    try {
+      // Filter out error items from preview data
+      const validItems = previewData?.items?.filter(item => item.action !== 'error') || [];
+      const workItemIds = selectedItems || (validItems.length > 0 ? validItems.map(item => item.sourceId) : null);
+      const result = await executeApi.executeSync(selectedConfig, workItemIds);
+      alert(`Sync executed successfully!\n\nTotal: ${result.data.results.total}\nCreated: ${result.data.results.created}\nUpdated: ${result.data.results.updated}\nErrors: ${result.data.results.errors}`);
+      setTimeout(() => loadExecutions(selectedConfig), 1000);
+    } catch (error) {
+      console.error('Execute sync error:', error);
+      alert('Error: ' + (error.response?.data?.message || error.response?.data?.error || error.message));
+    } finally {
+      setExecuting(false);
+      setPreviewData(null);
+    }
+  };
+
   const toggleExecutionDetails = async (executionId) => {
     if (expandedExecution === executionId) {
       setExpandedExecution(null);
@@ -85,14 +149,15 @@ const Monitoring = () => {
             [executionId]: {
               logs: res.data.logs || [],
               errors: res.data.errors || [],
-              syncedItems: res.data.syncedItems || []
+              syncedItems: res.data.syncedItems || [],
+              conflicts: res.data.conflicts || []
             }
           }));
         } catch (error) {
           console.error('Error loading execution details:', error);
           setExecutionDetails(prev => ({
             ...prev,
-            [executionId]: { logs: [], errors: [], syncedItems: [] }
+            [executionId]: { logs: [], errors: [], syncedItems: [], conflicts: [] }
           }));
         }
       }
@@ -136,6 +201,34 @@ const Monitoring = () => {
     return `${seconds}s`;
   };
 
+  // Parse log message and render URLs as clickable links
+  const renderLogMessage = (message) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = message.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a 
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ 
+              color: '#60a5fa',
+              textDecoration: 'underline',
+              cursor: 'pointer'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
+
   if (loading) {
     return <div className="page"><div className="loading">Loading...</div></div>;
   }
@@ -150,9 +243,13 @@ const Monitoring = () => {
           <p className="subtitle">Real-time sync monitoring and execution logs</p>
         </div>
         <div className="header-actions">
-          <button className="btn-secondary" onClick={() => loadExecutions(selectedConfig)}>
+          <button className="btn-secondary" onClick={handleManualRefresh} disabled={rateLimited || (Date.now() - lastRefresh < 2000)}>
             <RefreshCw size={16} />
             Refresh
+          </button>
+          <button className="btn-secondary" onClick={previewSync} disabled={previewLoading || executing}>
+            <Eye size={16} />
+            Preview Sync
           </button>
           <button className="btn-secondary" onClick={() => executeSync(true)} disabled={executing}>
             <AlertCircle size={16} />
@@ -204,21 +301,22 @@ const Monitoring = () => {
                   <div className="execution-stats">
                     <span>Synced: {exec.items_synced || 0}</span>
                     <span>Failed: {exec.items_failed || 0}</span>
+                    {exec.conflicts_detected > 0 && (
+                      <span style={{ color: '#f59e0b', fontWeight: '600' }}>Conflicts: {exec.conflicts_detected}</span>
+                    )}
                     <span>Duration: {formatDuration(exec.duration_ms)}</span>
                   </div>
                   {exec.error_message && (
                     <div className="execution-error">{exec.error_message}</div>
                   )}
-                  {(exec.items_failed > 0 || exec.items_synced > 0 || exec.error_message) && (
-                    <button 
-                      className="btn-link"
-                      onClick={() => toggleExecutionDetails(exec.id)}
-                      style={{ marginTop: '0.5rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                    >
-                      {expandedExecution === exec.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                      {expandedExecution === exec.id ? 'Hide' : 'View'} Execution Log
-                    </button>
-                  )}
+                  <button 
+                    className="btn-link"
+                    onClick={() => toggleExecutionDetails(exec.id)}
+                    style={{ marginTop: '0.5rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  >
+                    {expandedExecution === exec.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    {expandedExecution === exec.id ? 'Hide' : 'View'} Execution Log
+                  </button>
                   {expandedExecution === exec.id && (
                     <div style={{ 
                       marginTop: '1rem', 
@@ -266,7 +364,7 @@ const Monitoring = () => {
                                     {formatLogTime(log.timestamp)}
                                   </span>
                                   <span style={{ flex: 1 }}>
-                                    {log.message}
+                                    {renderLogMessage(log.message)}
                                     {log.work_item_id && (
                                       <span style={{ color: '#9ca3af', marginLeft: '0.5rem' }}>
                                         [ID: {log.work_item_id}]
@@ -417,6 +515,191 @@ const Monitoring = () => {
                         </div>
                       )}
                       
+                      {/* Conflicts */}
+                      {executionDetails[exec.id]?.conflicts && executionDetails[exec.id].conflicts.length > 0 && (
+                        <div style={{ 
+                          padding: '1rem',
+                          borderBottom: executionDetails[exec.id]?.errors?.length > 0 ? '1px solid #e5e7eb' : 'none'
+                        }}>
+                          <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.875rem', fontWeight: '600', color: '#f59e0b' }}>
+                            ⚠️ Conflicts ({executionDetails[exec.id].conflicts.length})
+                          </h4>
+                          <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            gap: '0.75rem',
+                            maxHeight: '400px',
+                            overflowY: 'auto'
+                          }}>
+                            {executionDetails[exec.id].conflicts.map((conflict, idx) => {
+                              const sourceUrl = conflict.source_base_url && conflict.source_project 
+                                ? `${conflict.source_base_url}/${conflict.source_project}/_workitems/edit/${conflict.source_work_item_id}`
+                                : null;
+                              const targetUrl = conflict.target_base_url && conflict.target_project
+                                ? `${conflict.target_base_url}/${conflict.target_project}/_workitems/edit/${conflict.target_work_item_id}`
+                                : null;
+                              
+                              return (
+                                <div key={idx} style={{ 
+                                  padding: '1rem', 
+                                  background: '#fffbeb', 
+                                  border: '1px solid #fde68a',
+                                  borderRadius: '6px'
+                                }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
+                                    <div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                                        <strong style={{ fontSize: '0.875rem', color: '#92400e' }}>
+                                          {conflict.conflict_type}
+                                        </strong>
+                                        <span style={{ 
+                                          background: conflict.status === 'unresolved' ? '#fef3c7' : '#dcfce7',
+                                          color: conflict.status === 'unresolved' ? '#92400e' : '#166534',
+                                          padding: '0.125rem 0.5rem',
+                                          borderRadius: '9999px',
+                                          fontSize: '0.75rem',
+                                          fontWeight: '500'
+                                        }}>
+                                          {conflict.status || 'unresolved'}
+                                        </span>
+                                      </div>
+                                      <div style={{ fontSize: '0.75rem', color: '#78716c', marginBottom: '0.5rem' }}>
+                                        Field: <strong>{conflict.field_name}</strong>
+                                      </div>
+                                      <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.75rem' }}>
+                                        {sourceUrl && (
+                                          <a 
+                                            href={sourceUrl} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            style={{ color: '#2563eb', textDecoration: 'none' }}
+                                          >
+                                            Source #{conflict.source_work_item_id} ↗
+                                          </a>
+                                        )}
+                                        {targetUrl && (
+                                          <a 
+                                            href={targetUrl} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            style={{ color: '#2563eb', textDecoration: 'none' }}
+                                          >
+                                            Target #{conflict.target_work_item_id} ↗
+                                          </a>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {conflict.status === 'unresolved' && (
+                                      <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              await conflictsApi.resolveAuto(conflict.id);
+                                              alert('Conflict resolved automatically');
+                                              // Reload execution details
+                                              const res = await executeApi.getExecutionDetails(executionId);
+                                              setExecutionDetails(prev => ({
+                                                ...prev,
+                                                [executionId]: {
+                                                  logs: res.data.logs || [],
+                                                  errors: res.data.errors || [],
+                                                  syncedItems: res.data.syncedItems || [],
+                                                  conflicts: res.data.conflicts || []
+                                                }
+                                              }));
+                                            } catch (error) {
+                                              alert('Failed to resolve conflict: ' + error.message);
+                                            }
+                                          }}
+                                          style={{
+                                            padding: '0.25rem 0.75rem',
+                                            fontSize: '0.75rem',
+                                            background: '#3b82f6',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            fontWeight: '500'
+                                          }}
+                                        >
+                                          Auto Resolve
+                                        </button>
+                                        <button
+                                          onClick={() => window.open('/conflicts', '_blank')}
+                                          style={{
+                                            padding: '0.25rem 0.75rem',
+                                            fontSize: '0.75rem',
+                                            background: 'white',
+                                            color: '#6b7280',
+                                            border: '1px solid #d1d5db',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            fontWeight: '500'
+                                          }}
+                                        >
+                                          Resolve Manually
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div style={{ 
+                                    display: 'grid', 
+                                    gridTemplateColumns: '1fr 1fr 1fr',
+                                    gap: '0.75rem',
+                                    fontSize: '0.75rem'
+                                  }}>
+                                    <div>
+                                      <div style={{ color: '#6b7280', marginBottom: '0.25rem', fontWeight: '500' }}>Source Value:</div>
+                                      <div style={{ 
+                                        padding: '0.5rem',
+                                        background: 'white',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '4px',
+                                        wordBreak: 'break-word',
+                                        maxHeight: '4rem',
+                                        overflowY: 'auto'
+                                      }}>
+                                        {conflict.source_value || <em style={{ color: '#9ca3af' }}>empty</em>}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div style={{ color: '#6b7280', marginBottom: '0.25rem', fontWeight: '500' }}>Target Value:</div>
+                                      <div style={{ 
+                                        padding: '0.5rem',
+                                        background: 'white',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '4px',
+                                        wordBreak: 'break-word',
+                                        maxHeight: '4rem',
+                                        overflowY: 'auto'
+                                      }}>
+                                        {conflict.target_value || <em style={{ color: '#9ca3af' }}>empty</em>}
+                                      </div>
+                                    </div>
+                                    {conflict.base_value && (
+                                      <div>
+                                        <div style={{ color: '#6b7280', marginBottom: '0.25rem', fontWeight: '500' }}>Base Value:</div>
+                                        <div style={{ 
+                                          padding: '0.5rem',
+                                          background: 'white',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '4px',
+                                          wordBreak: 'break-word',
+                                          maxHeight: '4rem',
+                                          overflowY: 'auto'
+                                        }}>
+                                          {conflict.base_value}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      
                       {/* Error Details */}
                       {executionDetails[exec.id]?.errors && executionDetails[exec.id].errors.length > 0 && (
                         <div style={{ padding: '1rem' }}>
@@ -490,9 +773,14 @@ const Monitoring = () => {
                         </div>
                       )}
                       
-                      {(!executionDetails[exec.id] || (!executionDetails[exec.id].logs?.length && !executionDetails[exec.id].errors?.length && !executionDetails[exec.id].syncedItems?.length)) && (
+                      {!executionDetails[exec.id] && (
                         <div style={{ padding: '1.5rem', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem' }}>
                           Loading execution details...
+                        </div>
+                      )}
+                      {executionDetails[exec.id] && !executionDetails[exec.id].logs?.length && !executionDetails[exec.id].errors?.length && !executionDetails[exec.id].syncedItems?.length && !executionDetails[exec.id].conflicts?.length && (
+                        <div style={{ padding: '1.5rem', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem' }}>
+                          No execution details available for this run.
                         </div>
                       )}
                     </div>
@@ -508,6 +796,264 @@ const Monitoring = () => {
           </div>
         </div>
       </div>
+
+      {/* Preview Modal */}
+      {showPreview && previewData && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            maxWidth: '900px',
+            width: '90%',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '1.5rem',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600', color: '#111827' }}>
+                  Preview Sync
+                </h2>
+                <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: '#6b7280' }}>
+                  Review what will be synced before execution
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPreview(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  color: '#6b7280',
+                  cursor: 'pointer',
+                  padding: '0.25rem',
+                  lineHeight: 1
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Summary Stats */}
+            <div style={{
+              padding: '1.5rem',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+              gap: '1rem'
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '2rem', fontWeight: '700', color: '#3b82f6' }}>
+                  {previewData.summary?.total || 0}
+                </div>
+                <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                  Total Items
+                </div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '2rem', fontWeight: '700', color: '#10b981' }}>
+                  {previewData.summary?.willCreate || 0}
+                </div>
+                <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                  Will Create
+                </div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '2rem', fontWeight: '700', color: '#f59e0b' }}>
+                  {previewData.summary?.willUpdate || 0}
+                </div>
+                <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                  Will Update
+                </div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '2rem', fontWeight: '700', color: '#ef4444' }}>
+                  {previewData.summary?.errors || 0}
+                </div>
+                <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                  Errors
+                </div>
+              </div>
+            </div>
+
+            {/* Items List */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '1.5rem'
+            }}>
+              {previewData.items && previewData.items.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {previewData.items.map((item, idx) => (
+                    <div key={idx} style={{
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      padding: '1rem',
+                      background: item.action === 'error' ? '#fef2f2' : '#f9fafb'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                            <span style={{
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              padding: '0.25rem 0.75rem',
+                              borderRadius: '9999px',
+                              background: item.action === 'create' ? '#dcfce7' : item.action === 'update' ? '#fef3c7' : '#fee2e2',
+                              color: item.action === 'create' ? '#166534' : item.action === 'update' ? '#92400e' : '#991b1b'
+                            }}>
+                              {item.action === 'create' ? 'CREATE' : item.action === 'update' ? 'UPDATE' : 'ERROR'}
+                            </span>
+                            <strong style={{ fontSize: '0.875rem', color: '#374151' }}>
+                              ID: {item.sourceId}
+                            </strong>
+                            {item.sourceType && (
+                              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                ({item.sourceType})
+                              </span>
+                            )}
+                          </div>
+                          {item.title && (
+                            <div style={{ fontSize: '0.875rem', color: '#111827', fontWeight: '500', marginBottom: '0.5rem' }}>
+                              {item.title}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {item.error && (
+                        <div style={{
+                          padding: '0.75rem',
+                          background: '#fee2e2',
+                          border: '1px solid #fecaca',
+                          borderRadius: '4px',
+                          fontSize: '0.875rem',
+                          color: '#991b1b'
+                        }}>
+                          {item.error}
+                        </div>
+                      )}
+                      
+                      {item.mappedFields && Object.keys(item.mappedFields).length > 0 && (
+                        <details style={{ marginTop: '0.75rem' }}>
+                          <summary style={{
+                            fontSize: '0.875rem',
+                            color: '#6b7280',
+                            cursor: 'pointer',
+                            userSelect: 'none'
+                          }}>
+                            View mapped fields ({Object.keys(item.mappedFields).length})
+                          </summary>
+                          <div style={{
+                            marginTop: '0.5rem',
+                            padding: '0.75rem',
+                            background: 'white',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '4px',
+                            fontSize: '0.8125rem',
+                            maxHeight: '200px',
+                            overflowY: 'auto'
+                          }}>
+                            {Object.entries(item.mappedFields).map(([key, value]) => (
+                              <div key={key} style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 2fr',
+                                gap: '0.5rem',
+                                padding: '0.5rem 0',
+                                borderBottom: '1px solid #f3f4f6'
+                              }}>
+                                <strong style={{ color: '#374151' }}>{key}:</strong>
+                                <span style={{ color: '#6b7280', wordBreak: 'break-word' }}>
+                                  {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
+                  <Clock size={48} style={{ margin: '0 auto 1rem' }} />
+                  <p style={{ fontSize: '1rem', margin: 0 }}>No items to sync</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '1.5rem',
+              borderTop: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '1rem'
+            }}>
+              <button
+                onClick={() => setShowPreview(false)}
+                style={{
+                  padding: '0.625rem 1.25rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  background: 'white',
+                  color: '#374151',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              {(() => {
+                const validItems = previewData.items?.filter(item => item.action !== 'error') || [];
+                const hasNoValidItems = validItems.length === 0;
+                return (
+                  <button
+                    onClick={() => executeFromPreview()}
+                    disabled={hasNoValidItems}
+                    style={{
+                      padding: '0.625rem 1.25rem',
+                      border: 'none',
+                      borderRadius: '6px',
+                      background: hasNoValidItems ? '#d1d5db' : '#3b82f6',
+                      color: 'white',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      cursor: hasNoValidItems ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}
+                  >
+                    <Play size={16} />
+                    Execute Sync
+                  </button>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -181,6 +181,18 @@
   color: var(--error);
 }
 
+.execution-stat.conflicts {
+  background: #fffbeb;
+  color: #f59e0b;
+  transition: all 0.2s;
+}
+
+.execution-stat.conflicts:hover {
+  background: #fef3c7;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
 .execution-stat.total {
   background: #eff6ff;
   color: var(--primary);

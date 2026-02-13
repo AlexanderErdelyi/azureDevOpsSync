@@ -288,9 +288,14 @@ router.post('/:id/test', async (req, res) => {
     }
   } catch (error) {
     console.error('Error testing connector:', error);
+    
+    // Detect decryption failure and give actionable message
+    const isDecryptError = error.message && error.message.includes('Failed to decrypt');
     res.status(500).json({
       success: false,
-      error: 'Failed to test connector',
+      error: isDecryptError 
+        ? 'Credentials cannot be decrypted. Please edit this connector and re-enter your credentials (PAT token).'
+        : 'Failed to test connector',
       message: error.message
     });
   }

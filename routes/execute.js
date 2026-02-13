@@ -7,7 +7,6 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../database/db');
 const { registry } = require('../lib/connectors');
-const mappingEngine = require('../lib/mapping/MappingEngine');
 const SyncEngine = require('../lib/SyncEngine');
 
 /**
@@ -128,28 +127,49 @@ router.get('/status/:executionId', async (req, res) => {
       .select('item_id', 'error_type', 'error_message', 'stack_trace', 'created_at')
       .orderBy('created_at', 'desc');
     
-    // Get synced items for this execution (items synced during the execution time window)
-    let syncedItems = [];
-    if (execution.started_at && execution.completed_at) {
-      syncedItems = await db('synced_items as si')
-        .leftJoin('connectors as sc', 'si.source_connector_id', 'sc.id')
-        .leftJoin('connectors as tc', 'si.target_connector_id', 'tc.id')
-        .where({ 'si.sync_config_id': execution.sync_config_id })
-        .whereBetween('si.last_synced_at', [execution.started_at, execution.completed_at])
-        .select(
-          'si.source_item_id',
-          'si.target_item_id',
-          'si.source_item_type',
-          'si.target_item_type',
-          'si.last_synced_at',
-          'si.sync_count',
-          'sc.base_url as source_base_url',
-          'sc.endpoint as source_project',
-          'tc.base_url as target_base_url',
-          'tc.endpoint as target_project'
-        )
-        .orderBy('si.last_synced_at', 'asc');
-    }
+    // Get synced items for this execution using execution_id
+    const syncedItems = await db('synced_items as si')
+      .leftJoin('connectors as sc', 'si.source_connector_id', 'sc.id')
+      .leftJoin('connectors as tc', 'si.target_connector_id', 'tc.id')
+      .where({ 'si.execution_id': executionId })
+      .select(
+        'si.source_item_id',
+        'si.target_item_id',
+        'si.source_item_type',
+        'si.target_item_type',
+        'si.last_synced_at',
+        'si.sync_count',
+        'sc.base_url as source_base_url',
+        'sc.endpoint as source_project',
+        'tc.base_url as target_base_url',
+        'tc.endpoint as target_project'
+      )
+      .orderBy('si.last_synced_at', 'asc');
+    
+    // Get conflicts for this execution
+    const conflicts = await db('sync_conflicts as sc')
+      .leftJoin('sync_configs as cfg', 'sc.sync_config_id', 'cfg.id')
+      .leftJoin('connectors as source_conn', 'cfg.source_connector_id', 'source_conn.id')
+      .leftJoin('connectors as target_conn', 'cfg.target_connector_id', 'target_conn.id')
+      .where({ 'sc.execution_id': executionId })
+      .select(
+        'sc.id',
+        'sc.conflict_type',
+        'sc.field_name',
+        'sc.source_value',
+        'sc.target_value',
+        'sc.base_value',
+        'sc.source_work_item_id',
+        'sc.target_work_item_id',
+        'sc.status',
+        'sc.resolution_strategy',
+        'sc.detected_at',
+        'source_conn.base_url as source_base_url',
+        'source_conn.endpoint as source_project',
+        'target_conn.base_url as target_base_url',
+        'target_conn.endpoint as target_project'
+      )
+      .orderBy('sc.detected_at', 'asc');
     
     res.json({
       success: true,
@@ -159,7 +179,8 @@ router.get('/status/:executionId', async (req, res) => {
       },
       logs: logs,
       errors: errors,
-      syncedItems: syncedItems
+      syncedItems: syncedItems,
+      conflicts: conflicts
     });
   } catch (error) {
     console.error('Error fetching execution status:', error);
