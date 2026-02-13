@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Plug, 
   Settings, 
@@ -9,17 +9,19 @@ import {
   Clock,
   RefreshCw,
   ArrowRight,
-  TrendingUp
+  TrendingUp,
+  AlertTriangle
 } from 'lucide-react';
 import { connectorApi, syncConfigApi, executeApi, schedulerApi, jobQueueApi } from '../services/api';
 import './Dashboard.css';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     connectors: { total: 0, active: 0 },
     syncConfigs: { total: 0, scheduled: 0 },
-    executions: { today: 0, success: 0, failed: 0 },
+    executions: { today: 0, success: 0, failed: 0, conflicts: 0 },
     scheduler: { isRunning: false, jobCount: 0 },
     queue: { queuedJobs: 0, activeJobs: 0 }
   });
@@ -81,7 +83,8 @@ const Dashboard = () => {
         executions: {
           today: todayExecutions.length,
           success: allExecutions.filter(e => e.status === 'completed').length,
-          failed: allExecutions.filter(e => e.status === 'failed').length
+          failed: allExecutions.filter(e => e.status === 'failed').length,
+          conflicts: todayExecutions.reduce((sum, e) => sum + (e.conflicts_detected || 0), 0)
         },
         scheduler: schedulerData,
         queue: queueData
@@ -226,6 +229,17 @@ const Dashboard = () => {
             <div>
               <div className="execution-stat-value">{stats.executions.failed}</div>
               <div className="execution-stat-label">Failed</div>
+            </div>
+          </div>
+          <div 
+            className="execution-stat conflicts" 
+            onClick={() => stats.executions.conflicts > 0 && navigate('/conflicts')}
+            style={{ cursor: stats.executions.conflicts > 0 ? 'pointer' : 'default' }}
+          >
+            <AlertTriangle size={20} />
+            <div>
+              <div className="execution-stat-value">{stats.executions.conflicts}</div>
+              <div className="execution-stat-label">Conflicts</div>
             </div>
           </div>
           <div className="execution-stat total">

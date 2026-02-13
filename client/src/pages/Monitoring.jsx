@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, CheckCircle2, XCircle, Clock, Play, AlertCircle, ChevronDown, ChevronUp, Eye } from 'lucide-react';
-import { syncConfigApi, executeApi } from '../services/api';
+import { RefreshCw, CheckCircle2, XCircle, Clock, Play, AlertCircle, ChevronDown, ChevronUp, Eye, AlertTriangle } from 'lucide-react';
+import { syncConfigApi, executeApi, conflictsApi } from '../services/api';
 import './Page.css';
 
 const Monitoring = () => {
@@ -149,14 +149,15 @@ const Monitoring = () => {
             [executionId]: {
               logs: res.data.logs || [],
               errors: res.data.errors || [],
-              syncedItems: res.data.syncedItems || []
+              syncedItems: res.data.syncedItems || [],
+              conflicts: res.data.conflicts || []
             }
           }));
         } catch (error) {
           console.error('Error loading execution details:', error);
           setExecutionDetails(prev => ({
             ...prev,
-            [executionId]: { logs: [], errors: [], syncedItems: [] }
+            [executionId]: { logs: [], errors: [], syncedItems: [], conflicts: [] }
           }));
         }
       }
@@ -300,6 +301,9 @@ const Monitoring = () => {
                   <div className="execution-stats">
                     <span>Synced: {exec.items_synced || 0}</span>
                     <span>Failed: {exec.items_failed || 0}</span>
+                    {exec.conflicts_detected > 0 && (
+                      <span style={{ color: '#f59e0b', fontWeight: '600' }}>Conflicts: {exec.conflicts_detected}</span>
+                    )}
                     <span>Duration: {formatDuration(exec.duration_ms)}</span>
                   </div>
                   {exec.error_message && (
@@ -511,6 +515,191 @@ const Monitoring = () => {
                         </div>
                       )}
                       
+                      {/* Conflicts */}
+                      {executionDetails[exec.id]?.conflicts && executionDetails[exec.id].conflicts.length > 0 && (
+                        <div style={{ 
+                          padding: '1rem',
+                          borderBottom: executionDetails[exec.id]?.errors?.length > 0 ? '1px solid #e5e7eb' : 'none'
+                        }}>
+                          <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.875rem', fontWeight: '600', color: '#f59e0b' }}>
+                            ⚠️ Conflicts ({executionDetails[exec.id].conflicts.length})
+                          </h4>
+                          <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            gap: '0.75rem',
+                            maxHeight: '400px',
+                            overflowY: 'auto'
+                          }}>
+                            {executionDetails[exec.id].conflicts.map((conflict, idx) => {
+                              const sourceUrl = conflict.source_base_url && conflict.source_project 
+                                ? `${conflict.source_base_url}/${conflict.source_project}/_workitems/edit/${conflict.source_work_item_id}`
+                                : null;
+                              const targetUrl = conflict.target_base_url && conflict.target_project
+                                ? `${conflict.target_base_url}/${conflict.target_project}/_workitems/edit/${conflict.target_work_item_id}`
+                                : null;
+                              
+                              return (
+                                <div key={idx} style={{ 
+                                  padding: '1rem', 
+                                  background: '#fffbeb', 
+                                  border: '1px solid #fde68a',
+                                  borderRadius: '6px'
+                                }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.75rem' }}>
+                                    <div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                                        <strong style={{ fontSize: '0.875rem', color: '#92400e' }}>
+                                          {conflict.conflict_type}
+                                        </strong>
+                                        <span style={{ 
+                                          background: conflict.status === 'unresolved' ? '#fef3c7' : '#dcfce7',
+                                          color: conflict.status === 'unresolved' ? '#92400e' : '#166534',
+                                          padding: '0.125rem 0.5rem',
+                                          borderRadius: '9999px',
+                                          fontSize: '0.75rem',
+                                          fontWeight: '500'
+                                        }}>
+                                          {conflict.status || 'unresolved'}
+                                        </span>
+                                      </div>
+                                      <div style={{ fontSize: '0.75rem', color: '#78716c', marginBottom: '0.5rem' }}>
+                                        Field: <strong>{conflict.field_name}</strong>
+                                      </div>
+                                      <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.75rem' }}>
+                                        {sourceUrl && (
+                                          <a 
+                                            href={sourceUrl} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            style={{ color: '#2563eb', textDecoration: 'none' }}
+                                          >
+                                            Source #{conflict.source_work_item_id} ↗
+                                          </a>
+                                        )}
+                                        {targetUrl && (
+                                          <a 
+                                            href={targetUrl} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            style={{ color: '#2563eb', textDecoration: 'none' }}
+                                          >
+                                            Target #{conflict.target_work_item_id} ↗
+                                          </a>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {conflict.status === 'unresolved' && (
+                                      <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              await conflictsApi.resolveAuto(conflict.id);
+                                              alert('Conflict resolved automatically');
+                                              // Reload execution details
+                                              const res = await executeApi.getExecutionDetails(executionId);
+                                              setExecutionDetails(prev => ({
+                                                ...prev,
+                                                [executionId]: {
+                                                  logs: res.data.logs || [],
+                                                  errors: res.data.errors || [],
+                                                  syncedItems: res.data.syncedItems || [],
+                                                  conflicts: res.data.conflicts || []
+                                                }
+                                              }));
+                                            } catch (error) {
+                                              alert('Failed to resolve conflict: ' + error.message);
+                                            }
+                                          }}
+                                          style={{
+                                            padding: '0.25rem 0.75rem',
+                                            fontSize: '0.75rem',
+                                            background: '#3b82f6',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            fontWeight: '500'
+                                          }}
+                                        >
+                                          Auto Resolve
+                                        </button>
+                                        <button
+                                          onClick={() => window.open('/conflicts', '_blank')}
+                                          style={{
+                                            padding: '0.25rem 0.75rem',
+                                            fontSize: '0.75rem',
+                                            background: 'white',
+                                            color: '#6b7280',
+                                            border: '1px solid #d1d5db',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            fontWeight: '500'
+                                          }}
+                                        >
+                                          Resolve Manually
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div style={{ 
+                                    display: 'grid', 
+                                    gridTemplateColumns: '1fr 1fr 1fr',
+                                    gap: '0.75rem',
+                                    fontSize: '0.75rem'
+                                  }}>
+                                    <div>
+                                      <div style={{ color: '#6b7280', marginBottom: '0.25rem', fontWeight: '500' }}>Source Value:</div>
+                                      <div style={{ 
+                                        padding: '0.5rem',
+                                        background: 'white',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '4px',
+                                        wordBreak: 'break-word',
+                                        maxHeight: '4rem',
+                                        overflowY: 'auto'
+                                      }}>
+                                        {conflict.source_value || <em style={{ color: '#9ca3af' }}>empty</em>}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div style={{ color: '#6b7280', marginBottom: '0.25rem', fontWeight: '500' }}>Target Value:</div>
+                                      <div style={{ 
+                                        padding: '0.5rem',
+                                        background: 'white',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '4px',
+                                        wordBreak: 'break-word',
+                                        maxHeight: '4rem',
+                                        overflowY: 'auto'
+                                      }}>
+                                        {conflict.target_value || <em style={{ color: '#9ca3af' }}>empty</em>}
+                                      </div>
+                                    </div>
+                                    {conflict.base_value && (
+                                      <div>
+                                        <div style={{ color: '#6b7280', marginBottom: '0.25rem', fontWeight: '500' }}>Base Value:</div>
+                                        <div style={{ 
+                                          padding: '0.5rem',
+                                          background: 'white',
+                                          border: '1px solid #e5e7eb',
+                                          borderRadius: '4px',
+                                          wordBreak: 'break-word',
+                                          maxHeight: '4rem',
+                                          overflowY: 'auto'
+                                        }}>
+                                          {conflict.base_value}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      
                       {/* Error Details */}
                       {executionDetails[exec.id]?.errors && executionDetails[exec.id].errors.length > 0 && (
                         <div style={{ padding: '1rem' }}>
@@ -589,7 +778,7 @@ const Monitoring = () => {
                           Loading execution details...
                         </div>
                       )}
-                      {executionDetails[exec.id] && !executionDetails[exec.id].logs?.length && !executionDetails[exec.id].errors?.length && !executionDetails[exec.id].syncedItems?.length && (
+                      {executionDetails[exec.id] && !executionDetails[exec.id].logs?.length && !executionDetails[exec.id].errors?.length && !executionDetails[exec.id].syncedItems?.length && !executionDetails[exec.id].conflicts?.length && (
                         <div style={{ padding: '1.5rem', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem' }}>
                           No execution details available for this run.
                         </div>

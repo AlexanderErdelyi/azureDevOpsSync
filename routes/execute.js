@@ -146,6 +146,31 @@ router.get('/status/:executionId', async (req, res) => {
       )
       .orderBy('si.last_synced_at', 'asc');
     
+    // Get conflicts for this execution
+    const conflicts = await db('sync_conflicts as sc')
+      .leftJoin('sync_configs as cfg', 'sc.sync_config_id', 'cfg.id')
+      .leftJoin('connectors as source_conn', 'cfg.source_connector_id', 'source_conn.id')
+      .leftJoin('connectors as target_conn', 'cfg.target_connector_id', 'target_conn.id')
+      .where({ 'sc.execution_id': executionId })
+      .select(
+        'sc.id',
+        'sc.conflict_type',
+        'sc.field_name',
+        'sc.source_value',
+        'sc.target_value',
+        'sc.base_value',
+        'sc.source_work_item_id',
+        'sc.target_work_item_id',
+        'sc.status',
+        'sc.resolution_strategy',
+        'sc.detected_at',
+        'source_conn.base_url as source_base_url',
+        'source_conn.endpoint as source_project',
+        'target_conn.base_url as target_base_url',
+        'target_conn.endpoint as target_project'
+      )
+      .orderBy('sc.detected_at', 'asc');
+    
     res.json({
       success: true,
       execution: {
@@ -154,7 +179,8 @@ router.get('/status/:executionId', async (req, res) => {
       },
       logs: logs,
       errors: errors,
-      syncedItems: syncedItems
+      syncedItems: syncedItems,
+      conflicts: conflicts
     });
   } catch (error) {
     console.error('Error fetching execution status:', error);
