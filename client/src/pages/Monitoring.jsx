@@ -200,6 +200,34 @@ const Monitoring = () => {
     return `${seconds}s`;
   };
 
+  // Parse log message and render URLs as clickable links
+  const renderLogMessage = (message) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = message.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a 
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ 
+              color: '#60a5fa',
+              textDecoration: 'underline',
+              cursor: 'pointer'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
+
   if (loading) {
     return <div className="page"><div className="loading">Loading...</div></div>;
   }
@@ -332,7 +360,7 @@ const Monitoring = () => {
                                     {formatLogTime(log.timestamp)}
                                   </span>
                                   <span style={{ flex: 1 }}>
-                                    {log.message}
+                                    {renderLogMessage(log.message)}
                                     {log.work_item_id && (
                                       <span style={{ color: '#9ca3af', marginLeft: '0.5rem' }}>
                                         [ID: {log.work_item_id}]
