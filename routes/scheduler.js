@@ -111,6 +111,16 @@ router.post('/scheduler/schedule/:configId', async (req, res) => {
       });
     }
 
+    // Validate cron expression BEFORE saving to database
+    const cron = require('node-cron');
+    if (!cron.validate(schedule_cron)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation Error',
+        message: `Invalid cron expression: "${schedule_cron}". Valid format: "* * * * *" (5 fields: minute hour day month weekday). Examples: "* * * * *" (every minute), "0 * * * *" (hourly), "0 0 * * *" (daily)`
+      });
+    }
+
     // Get config
     const config = await db('sync_configs').where({ id: configId }).first();
     if (!config) {
@@ -129,16 +139,19 @@ router.post('/scheduler/schedule/:configId', async (req, res) => {
         schedule_cron
       });
 
-    // Schedule it
+    // Schedule it (this will set next_sync_at in the database)
     await scheduler.scheduleSync(configId, schedule_cron, config.name);
+
+    const updatedConfig = await db('sync_configs')
+      .where({ id: configId })
+      .select('next_sync_at', 'last_sync_at')
+      .first();
 
     res.json({
       success: true,
       message: 'Sync configuration scheduled successfully',
-      next_run: await db('sync_configs')
-        .where({ id: configId })
-        .select('next_sync_at')
-        .first()
+      next_run: updatedConfig.next_sync_at,
+      last_run: updatedConfig.last_sync_at
     });
 
   } catch (error) {

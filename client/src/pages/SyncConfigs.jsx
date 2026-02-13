@@ -161,6 +161,7 @@ const SyncConfigs = () => {
         ...wizardData,
         options: {
           sync_comments: wizardData.sync_comments || false,
+          include_comment_metadata: wizardData.include_comment_metadata !== false,
           sync_links: wizardData.sync_links || false,
           sync_only_changed: wizardData.sync_only_changed || false
         }
@@ -421,6 +422,7 @@ const SyncConfigs = () => {
         sync_direction: fullConfig.sync_direction || 'one_way',
         is_active: fullConfig.is_active !== undefined ? fullConfig.is_active : true,
         sync_comments: options.sync_comments || false,
+        include_comment_metadata: options.include_comment_metadata !== false,
         sync_links: options.sync_links || false,
         sync_only_changed: options.sync_only_changed || false
       });
@@ -867,6 +869,22 @@ const SyncConfigs = () => {
                     When enabled, comments from source work items will be synced to target work items
                   </small>
                 </div>
+
+                {wizardData.sync_comments && (
+                  <div className="form-group" style={{ marginLeft: '30px' }}>
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={wizardData.include_comment_metadata !== false}
+                        onChange={e => setWizardData({ ...wizardData, include_comment_metadata: e.target.checked })}
+                      />
+                      <span>Include Comment Metadata</span>
+                    </label>
+                    <small className="form-hint">
+                      When enabled, synced comments will include '[Synced from source]' prefix and author attribution. Uncheck to sync only the raw comment text.
+                    </small>
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label className="checkbox-label">

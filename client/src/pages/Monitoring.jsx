@@ -277,16 +277,14 @@ const Monitoring = () => {
                   {exec.error_message && (
                     <div className="execution-error">{exec.error_message}</div>
                   )}
-                  {(exec.items_failed > 0 || exec.items_synced > 0 || exec.error_message) && (
-                    <button 
-                      className="btn-link"
-                      onClick={() => toggleExecutionDetails(exec.id)}
-                      style={{ marginTop: '0.5rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                    >
-                      {expandedExecution === exec.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                      {expandedExecution === exec.id ? 'Hide' : 'View'} Execution Log
-                    </button>
-                  )}
+                  <button 
+                    className="btn-link"
+                    onClick={() => toggleExecutionDetails(exec.id)}
+                    style={{ marginTop: '0.5rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  >
+                    {expandedExecution === exec.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    {expandedExecution === exec.id ? 'Hide' : 'View'} Execution Log
+                  </button>
                   {expandedExecution === exec.id && (
                     <div style={{ 
                       marginTop: '1rem', 
@@ -558,9 +556,14 @@ const Monitoring = () => {
                         </div>
                       )}
                       
-                      {(!executionDetails[exec.id] || (!executionDetails[exec.id].logs?.length && !executionDetails[exec.id].errors?.length && !executionDetails[exec.id].syncedItems?.length)) && (
+                      {!executionDetails[exec.id] && (
                         <div style={{ padding: '1.5rem', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem' }}>
                           Loading execution details...
+                        </div>
+                      )}
+                      {executionDetails[exec.id] && !executionDetails[exec.id].logs?.length && !executionDetails[exec.id].errors?.length && !executionDetails[exec.id].syncedItems?.length && (
+                        <div style={{ padding: '1.5rem', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem' }}>
+                          No execution details available for this run.
                         </div>
                       )}
                     </div>

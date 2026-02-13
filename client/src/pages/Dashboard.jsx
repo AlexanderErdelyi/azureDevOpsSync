@@ -53,13 +53,13 @@ const Dashboard = () => {
 
       // Load recent executions for all configs
       const executionPromises = configs.slice(0, 5).map(config => 
-        executeApi.getExecutionHistory(config.id, 5).catch(() => ({ data: { history: [] } }))
+        executeApi.getExecutionHistory(config.id, 5).catch(() => ({ data: { executions: [] } }))
       );
       const executionsResults = await Promise.all(executionPromises);
       
       const allExecutions = executionsResults
-        .flatMap(res => res.data.history || [])
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .flatMap(res => res.data.executions || [])
+        .sort((a, b) => new Date(b.started_at) - new Date(a.started_at))
         .slice(0, 10);
       
       setRecentExecutions(allExecutions);
@@ -67,7 +67,7 @@ const Dashboard = () => {
       // Calculate stats
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const todayExecutions = allExecutions.filter(e => new Date(e.created_at) >= today);
+      const todayExecutions = allExecutions.filter(e => new Date(e.started_at) >= today);
       
       setStats({
         connectors: {
@@ -311,7 +311,7 @@ const Dashboard = () => {
                     Sync Config #{execution.sync_config_id}
                   </div>
                   <div className="execution-meta">
-                    {formatDate(execution.created_at)} · 
+                    {formatDate(execution.started_at)} · 
                     {execution.items_synced || 0} synced · 
                     {execution.items_failed || 0} failed ·
                     {formatDuration(execution.duration_ms)}
